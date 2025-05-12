@@ -80,23 +80,146 @@ const Inbox: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [isAddEmailAccountOpen, setIsAddEmailAccountOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined);
   const [composeData, setComposeData] = useState({
     to: '',
     subject: '',
     body: ''
   });
+  const [addEmailData, setAddEmailData] = useState<AddEmailDialogData>({
+    provider: 'gmail',
+    email: ''
+  });
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
-  // Filter emails by folder and search term
-  const filteredEmails = sampleEmails.filter(email => {
-    const matchesFolder = email.folder === activeFolder;
+  // Fetch email accounts
+  const { data: emailAccounts = [], isLoading: isLoadingAccounts } = useQuery({
+    queryKey: ['/api/email/accounts'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/email/accounts');
+      const data = await res.json();
+      return data as EmailAccount[];
+    }
+  });
+  
+  // Fetch email messages
+  const { data: emailData, isLoading: isLoadingEmails } = useQuery({
+    queryKey: ['/api/email/messages', activeFolder, selectedAccountId],
+    queryFn: async () => {
+      let url = `/api/email/messages?folder=${activeFolder}`;
+      if (selectedAccountId) {
+        url += `&accountId=${selectedAccountId}`;
+      }
+      const res = await apiRequest('GET', url);
+      const data = await res.json();
+      
+      // Convert date strings to Date objects
+      if (data.messages) {
+        data.messages.forEach((msg: any) => {
+          msg.date = new Date(msg.date);
+        });
+      }
+      
+      return data;
+    }
+  });
+  
+  // Add email account mutation
+  const addEmailAccountMutation = useMutation({
+    mutationFn: async (accountData: AddEmailDialogData) => {
+      const res = await apiRequest('POST', '/api/email/accounts', accountData);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/accounts'] });
+      setIsAddEmailAccountOpen(false);
+      setAddEmailData({ provider: 'gmail', email: '' });
+      toast({
+        title: 'Email Account Added',
+        description: 'Your email account has been connected successfully.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to Add Email Account',
+        description: 'There was an error connecting your email account.',
+        variant: 'destructive'
+      });
+    }
+  });
+  
+  // Delete email account mutation
+  const deleteEmailAccountMutation = useMutation({
+    mutationFn: async (accountId: number) => {
+      const res = await apiRequest('DELETE', `/api/email/accounts/${accountId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/accounts'] });
+      if (selectedAccountId) {
+        setSelectedAccountId(undefined);
+      }
+      toast({
+        title: 'Email Account Removed',
+        description: 'Your email account has been disconnected.',
+      });
+    }
+  });
+  
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async (data: { accountId: number, to: string, subject: string, body: string, leadId?: number }) => {
+      const res = await apiRequest('POST', '/api/email/send', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
+      setIsComposeOpen(false);
+      setComposeData({ to: '', subject: '', body: '' });
+      toast({
+        title: 'Email Sent',
+        description: 'Your email has been sent successfully.',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Failed to Send Email',
+        description: 'There was an error sending your email.',
+        variant: 'destructive'
+      });
+    }
+  });
+  
+  // Convert email to lead mutation
+  const convertToLeadMutation = useMutation({
+    mutationFn: async (data: { emailId: number, fromName?: string, fromEmail: string }) => {
+      const res = await apiRequest('POST', '/api/email/convert-to-lead', data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      toast({
+        title: 'Lead Created',
+        description: `A new lead has been created from the email: ${data.lead.name}`,
+      });
+    }
+  });
+  
+  // Get email messages
+  const emails = emailData?.messages || [];
+  
+  // Filter emails by search term
+  const filteredEmails = emails.filter((email: EmailMessage) => {
     const matchesSearch = searchTerm === '' || 
       email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.body.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesFolder && matchesSearch;
+    return matchesSearch;
   });
   
   // Sort emails by date (newest first)
@@ -105,13 +228,21 @@ const Inbox: React.FC = () => {
   );
   
   const handleComposeSubmit = () => {
-    // Would connect to email sending API
-    toast({
-      title: 'Email Sent',
-      description: `Your email to ${composeData.to} has been sent.`,
+    if (!selectedAccountId) {
+      toast({
+        title: 'No Email Account Selected',
+        description: 'Please select an email account to send from.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    sendEmailMutation.mutate({
+      accountId: selectedAccountId,
+      to: composeData.to,
+      subject: composeData.subject,
+      body: composeData.body
     });
-    setIsComposeOpen(false);
-    setComposeData({ to: '', subject: '', body: '' });
   };
   
   const handleCreateLead = (email: EmailMessage) => {
@@ -303,7 +434,7 @@ const Inbox: React.FC = () => {
                 <span className="text-sm font-medium">Inbox</span>
               </div>
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                {sampleEmails.filter(e => e.folder === 'inbox' && !e.read).length}
+                {emails.filter((e: EmailMessage) => e.folder === 'inbox' && !e.read).length}
               </span>
             </div>
             
