@@ -6,8 +6,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check route
+// Add health check route that redirects to /dashboard in production
 app.get("/", (_req, res) => {
+  if (app.get("env") === "production") {
+    return res.redirect("/dashboard");
+  }
   res.status(200).send("OK");
 });
 

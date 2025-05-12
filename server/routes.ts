@@ -1621,6 +1621,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return messages;
   }
 
+  // Add catch-all route for SPA - This ensures all frontend routes work in production
+  app.get([
+    "/dashboard", 
+    "/leads", 
+    "/clients", 
+    "/deals", 
+    "/tasks", 
+    "/inbox", 
+    "/calendar", 
+    "/booking", 
+    "/payments", 
+    "/customers", 
+    "/reports", 
+    "/settings"
+  ], (req, res, next) => {
+    // If this is an API request, let it pass through
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    
+    // In development, let Vite handle it
+    if (process.env.NODE_ENV === "development") {
+      return next();
+    }
+    
+    // In production, serve index.html for all frontend routes
+    return res.sendFile("index.html", { root: "./dist/public" });
+  });
+
   // Create HTTP server
   const httpServer = createServer(app);
 
