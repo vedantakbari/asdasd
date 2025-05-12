@@ -8,6 +8,7 @@ import {
   payments, type Payment, type InsertPayment,
   activities, type Activity, type InsertActivity,
   googleCalendarSettings, type GoogleCalendarSettings, type InsertGoogleCalendarSettings,
+  emailAccounts, type EmailAccount, type InsertEmailAccount,
   LeadStatus, DealStage, TaskPriority, TaskStatus
 } from "@shared/schema";
 
@@ -21,6 +22,13 @@ export interface IStorage {
   getGoogleCalendarSettings(userId: number): Promise<GoogleCalendarSettings | undefined>;
   createGoogleCalendarSettings(settings: InsertGoogleCalendarSettings): Promise<GoogleCalendarSettings>;
   updateGoogleCalendarSettings(userId: number, settings: Partial<InsertGoogleCalendarSettings>): Promise<GoogleCalendarSettings | undefined>;
+  
+  // Email Integration
+  getEmailAccounts(userId: number): Promise<EmailAccount[]>;
+  getEmailAccount(id: number): Promise<EmailAccount | undefined>;
+  createEmailAccount(account: InsertEmailAccount): Promise<EmailAccount>;
+  updateEmailAccount(id: number, account: Partial<InsertEmailAccount>): Promise<EmailAccount | undefined>;
+  deleteEmailAccount(id: number): Promise<boolean>;
   
   // Leads
   getLeads(): Promise<Lead[]>;
@@ -88,6 +96,7 @@ export class MemStorage implements IStorage {
   private payments: Map<number, Payment>;
   private activities: Map<number, Activity>;
   private googleCalendarSettings: Map<number, GoogleCalendarSettings>;
+  private emailAccounts: Map<number, EmailAccount>;
   
   private userId: number;
   private leadId: number;
@@ -98,6 +107,7 @@ export class MemStorage implements IStorage {
   private paymentId: number;
   private activityId: number;
   private googleCalendarSettingsId: number;
+  private emailAccountId: number;
 
   constructor() {
     this.users = new Map();

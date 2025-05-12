@@ -1162,6 +1162,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Email Integration Routes
+  app.get("/api/email/accounts", async (req, res) => {
+    try {
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const accounts = await storage.getEmailAccounts(userId);
+      res.json(accounts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch email accounts" });
+    }
+  });
+
+  app.post("/api/email/accounts", async (req, res) => {
+    try {
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const { provider, email, accessToken, refreshToken, expiresAt } = req.body;
+      
+      if (!provider || !email) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const account = await storage.createEmailAccount({
+        userId,
+        provider,
+        email,
+        accessToken: accessToken || null,
+        refreshToken: refreshToken || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      });
+      
+      res.json(account);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add email account" });
+    }
+  });
+
+  app.delete("/api/email/accounts/:id", async (req, res) => {
+    try {
+      const accountId = parseInt(req.params.id);
+      const success = await storage.deleteEmailAccount(accountId);
+      
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Email account not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete email account" });
+    }
+  });
+
+  app.get("/api/email/messages", async (req, res) => {
+    try {
+      // In a real app, we would fetch messages from the email provider's API
+      // For demo purposes, we'll return simulated messages
+      
+      // Query parameters for filtering
+      const folder = req.query.folder as string || "inbox";
+      const accountId = req.query.accountId ? parseInt(req.query.accountId as string) : undefined;
+      
+      // Get all email accounts for the user
+      const userId = 1; // Using default user for testing
+      const accounts = await storage.getEmailAccounts(userId);
+      
+      if (accounts.length === 0) {
+        return res.json({ messages: [], totalCount: 0 });
+      }
+      
+      // Filter accounts if accountId is provided
+      const relevantAccounts = accountId 
+        ? accounts.filter(acc => acc.id === accountId)
+        : accounts;
+      
+      if (accountId && relevantAccounts.length === 0) {
+        return res.status(404).json({ message: "Email account not found" });
+      }
+      
+      // In a real implementation, we would fetch actual emails from the providers' APIs
+      // For demo, generate simulated messages for each account
+      const allMessages = [];
+      
+      for (const account of relevantAccounts) {
+        const simulatedMessages = generateSimulatedEmails(account, folder);
+        allMessages.push(...simulatedMessages);
+      }
+      
+      // Sort messages by date (newest first) and limit results
+      const sortedMessages = allMessages.sort((a, b) => b.date.getTime() - a.date.getTime());
+      
+      res.json({
+        messages: sortedMessages,
+        totalCount: sortedMessages.length
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch email messages" });
+    }
+  });
+
+  app.post("/api/email/send", async (req, res) => {
+    try {
+      const { accountId, to, subject, body, leadId } = req.body;
+      
+      if (!accountId || !to || !subject || !body) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // In a real implementation, we would send an actual email using the appropriate provider's API
+      // For demo purposes, we'll just create an activity to log the sent email
+      
+      // Get the email account
+      const account = await storage.getEmailAccount(accountId);
+      
+      if (!account) {
+        return res.status(404).json({ message: "Email account not found" });
+      }
+      
+      // Create activity to log the sent email
+      await storage.createActivity({
+        userId: account.userId,
+        activityType: "email_sent",
+        description: `Email sent to ${to} with subject: ${subject}`,
+        relatedLeadId: leadId || null
+      });
+      
+      res.json({ 
+        success: true,
+        message: {
+          id: Math.floor(Math.random() * 1000000),
+          from: account.email,
+          to,
+          subject,
+          body,
+          date: new Date(),
+          read: true,
+          folder: "sent",
+          leadId: leadId || null
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  app.post("/api/email/convert-to-lead", async (req, res) => {
+    try {
+      const { emailId, fromName, fromEmail } = req.body;
+      
+      if (!emailId || !fromEmail) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Create a new lead from the email sender
+      const lead = await storage.createLead({
+        name: fromName || fromEmail.split('@')[0],
+        email: fromEmail,
+        source: "Email Conversation",
+        status: LeadStatus.NEW,
+        ownerId: 1 // Using default user for testing
+      });
+      
+      // In a real implementation, we would update the email message in the provider's API
+      // to associate it with the new lead
+      
+      // Create activity to log the lead creation
+      await storage.createActivity({
+        userId: 1, // Using default user for testing
+        activityType: "lead_created",
+        description: `Lead created from email conversation with ${fromName || fromEmail}`,
+        relatedLeadId: lead.id
+      });
+      
+      res.json({ 
+        success: true,
+        lead
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to convert email to lead" });
+    }
+  });
+
+  // Helper function to generate simulated emails for demo purposes
+  function generateSimulatedEmails(account, folder) {
+    const messages = [];
+    const today = new Date();
+    
+    // Different content based on folder
+    if (folder === "inbox") {
+      messages.push({
+        id: 1001,
+        from: "customer.inquiry@example.com",
+        fromName: "John Smith",
+        to: account.email,
+        subject: "Quote Request for Bathroom Renovation",
+        body: "Hello,\n\nI'm interested in renovating my bathroom. Could you provide a quote for a complete remodel? Our bathroom is approximately 8x10 feet.\n\nThank you,\nJohn Smith",
+        date: new Date(today.getTime() - 2 * 60 * 60 * 1000), // 2 hours ago
+        read: false,
+        folder: "inbox",
+        leadId: null
+      });
+      
+      messages.push({
+        id: 1002,
+        from: "sarah.williams@example.com",
+        fromName: "Sarah Williams",
+        to: account.email,
+        subject: "Following up on kitchen renovation",
+        body: "Hi there,\n\nJust following up on our conversation last week about the kitchen renovation. Have you had a chance to prepare an estimate?\n\nBest regards,\nSarah",
+        date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        read: true,
+        folder: "inbox",
+        leadId: 1
+      });
+      
+      messages.push({
+        id: 1003,
+        from: "supplier@buildingmaterials.com",
+        fromName: "Building Materials Inc.",
+        to: account.email,
+        subject: "Order Confirmation #12345",
+        body: "Thank you for your order #12345. We are processing it and will ship the items within 2-3 business days.\n\nYour Building Materials Team",
+        date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        read: true,
+        folder: "inbox",
+        leadId: null
+      });
+    } else if (folder === "sent") {
+      messages.push({
+        id: 2001,
+        from: account.email,
+        to: "sarah.williams@example.com",
+        toName: "Sarah Williams",
+        subject: "Re: Following up on kitchen renovation",
+        body: "Hi Sarah,\n\nThank you for your patience. I've attached the estimate for your kitchen renovation as discussed. Please let me know if you have any questions.\n\nBest regards,\n" + account.email.split('@')[0],
+        date: new Date(today.getTime() - 12 * 60 * 60 * 1000), // 12 hours ago
+        read: true,
+        folder: "sent",
+        leadId: 1
+      });
+      
+      messages.push({
+        id: 2002,
+        from: account.email,
+        to: "customer.inquiry@example.com",
+        toName: "John Smith",
+        subject: "Re: Quote Request for Bathroom Renovation",
+        body: "Hello John,\n\nThank you for your inquiry. I'd be happy to provide a quote for your bathroom renovation. Could we schedule a time for me to visit and see the space?\n\nRegards,\n" + account.email.split('@')[0],
+        date: new Date(today.getTime() - 1 * 60 * 60 * 1000), // 1 hour ago
+        read: true,
+        folder: "sent",
+        leadId: null
+      });
+    } else if (folder === "trash") {
+      messages.push({
+        id: 3001,
+        from: "marketing@spam.example.com",
+        fromName: "Marketing Team",
+        to: account.email,
+        subject: "Special Offer Just For You!",
+        body: "LIMITED TIME OFFER! Click now for amazing discounts on products you don't need!",
+        date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        read: true,
+        folder: "trash",
+        leadId: null
+      });
+    }
+    
+    return messages;
+  }
+
   // Create HTTP server
   const httpServer = createServer(app);
 

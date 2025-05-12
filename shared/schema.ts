@@ -266,3 +266,27 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
 export type GoogleCalendarSettings = typeof googleCalendarSettings.$inferSelect;
 export type InsertGoogleCalendarSettings = z.infer<typeof insertGoogleCalendarSettingsSchema>;
+
+// Email Account Integration
+export const emailAccounts = pgTable("email_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  provider: text("provider").notNull(), // gmail, outlook, imap, etc.
+  email: text("email").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  connected: boolean("connected").default(false),
+  lastSynced: timestamp("last_synced"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type EmailAccount = typeof emailAccounts.$inferSelect;
+export type InsertEmailAccount = z.infer<typeof insertEmailAccountSchema>;
