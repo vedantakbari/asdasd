@@ -179,12 +179,12 @@ const Leads: React.FC = () => {
             description="Manage your sales leads"
             actions={
               <Button asChild>
-                <a href="/leads/new">
+                <Link href="/leads/new">
                   <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Add Lead
-                </a>
+                </Link>
               </Button>
             }
           />
