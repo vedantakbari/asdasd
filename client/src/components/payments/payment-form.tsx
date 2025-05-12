@@ -25,6 +25,9 @@ interface PaymentFormProps {
 
 const paymentSchema = insertPaymentSchema.extend({
   amount: z.string().transform(val => parseFloat(val)),
+  description: z.string().optional(),
+  receiptUrl: z.string().optional(),
+  dealId: z.number().optional(),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -42,26 +45,31 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const [paymentData, setPaymentData] = useState<{ amount: number; customerId: number; dealId?: number; description?: string } | null>(null);
 
   // Fetch customers for select dropdown
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<any[]>({
     queryKey: ['/api/customers'],
   });
 
   // Fetch deals for select dropdown
-  const { data: deals = [] } = useQuery({
+  const { data: deals = [] } = useQuery<any[]>({
     queryKey: ['/api/deals'],
   });
 
   const defaultValues: Partial<PaymentFormValues> = payment
     ? {
-        ...payment,
         amount: payment.amount.toString(),
+        method: payment.method,
+        status: payment.status,
+        dealId: payment.dealId ? Number(payment.dealId) : undefined,
+        customerId: payment.customerId,
+        description: payment.description || '',
+        receiptUrl: payment.receiptUrl || '',
       }
     : {
         amount: '',
         method: 'Credit Card',
         status: 'paid',
         dealId: dealId,
-        customerId: customerId,
+        customerId: customerId || 0,
         description: '',
         receiptUrl: '',
       };
@@ -125,6 +133,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
+  // If showing the online payment form
+  if (showOnlinePayment && paymentData) {
+    return (
+      <OnlinePayment
+        amount={paymentData.amount}
+        customerId={paymentData.customerId}
+        dealId={paymentData.dealId}
+        description={paymentData.description}
+        onSuccess={handleOnlinePaymentSuccess}
+        onCancel={() => setShowOnlinePayment(false)}
+      />
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -162,6 +184,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="Credit Card">Credit Card</SelectItem>
+                        <SelectItem value="Online Payment">Online Payment</SelectItem>
                         <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
                         <SelectItem value="PayPal">PayPal</SelectItem>
                         <SelectItem value="Cash">Cash</SelectItem>
@@ -192,7 +215,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {customers.map((customer: any) => (
+                        {Array.isArray(customers) && customers.map((customer) => (
                           <SelectItem key={customer.id} value={customer.id.toString()}>
                             {customer.name}
                           </SelectItem>
@@ -222,9 +245,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="">None</SelectItem>
-                        {deals
-                          .filter((deal: any) => !customerId || deal.customerId === customerId)
-                          .map((deal: any) => (
+                        {Array.isArray(deals) && deals
+                          .filter((deal) => !customerId || deal.customerId === customerId)
+                          .map((deal) => (
                             <SelectItem key={deal.id} value={deal.id.toString()}>
                               {deal.title} (${deal.value})
                             </SelectItem>
@@ -271,7 +294,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <FormControl>
                     <Textarea 
                       placeholder="Payment description or notes" 
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormMessage />
@@ -288,13 +315,26 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <FormControl>
                     <Input 
                       placeholder="https://example.com/receipts/123" 
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            
+            {form.watch('method') === 'Online Payment' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <p className="text-blue-800 font-medium mb-2">💳 Online Payment</p>
+                <p className="text-blue-700 text-sm">
+                  When you click "Process Payment", you'll be taken to a secure payment form where the customer can enter their payment details.
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button 
