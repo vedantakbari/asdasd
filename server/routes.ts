@@ -1649,6 +1649,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // In production, serve index.html for all frontend routes
     return res.sendFile("index.html", { root: "./dist/public" });
   });
+  
+  // Universal catch-all route for all nested routes and parameterized URLs
+  app.get('*', (req, res, next) => {
+    // Skip API requests
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    
+    // In development, let Vite handle it
+    if (process.env.NODE_ENV === 'development') {
+      return next();
+    }
+    
+    // In production, serve index.html for all other frontend routes
+    return res.sendFile('index.html', { root: './dist/public' });
+  });
 
   // Create HTTP server
   const httpServer = createServer(app);
