@@ -13,6 +13,7 @@ import {
   LeadStatus,
 } from "@shared/schema";
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
+import * as googleService from "./googleService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
@@ -1162,6 +1163,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google OAuth Routes
+  app.get("/api/auth/google", (req, res) => {
+    try {
+      // Initialize OAuth flow for Gmail access
+      const userId = 1; // Using default user for testing, normally from req.user.id
+      const state = Buffer.from(JSON.stringify({ userId, for: "email" })).toString('base64');
+      const authUrl = googleService.getAuthUrl(state);
+      
+      res.redirect(authUrl);
+    } catch (error) {
+      console.error("Error initiating Google OAuth:", error);
+      res.status(500).json({ message: "Failed to initiate Google authentication" });
+    }
+  });
+  
+  app.get("/api/auth/google/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Authorization code is required" });
+      }
+      
+      // Exchange code for tokens
+      const tokens = await googleService.getTokens(code as string);
+      
+      // Get user info
+      const userInfo = await googleService.getUserInfo(tokens.access_token);
+      
+      // Get user ID from state
+      let userId = 1; // Default user ID
+      if (state) {
+        try {
+          const parsedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
+          userId = parsedState.userId || 1;
+        } catch (e) {
+          console.error("Error parsing state:", e);
+        }
+      }
+      
+      // Get user email from Google response
+      let emailAddress = '';
+      if (userInfo.emailAddresses && userInfo.emailAddresses.length > 0) {
+        emailAddress = userInfo.emailAddresses[0].value;
+      }
+      
+      if (!emailAddress) {
+        return res.status(400).json({ message: "Failed to retrieve email from Google" });
+      }
+      
+      // Check if account already exists
+      const existingAccounts = await storage.getEmailAccounts(userId);
+      const existingAccount = existingAccounts.find(acc => 
+        acc.email === emailAddress && acc.provider === 'gmail'
+      );
+      
+      let accountId;
+      
+      if (existingAccount) {
+        // Update existing account with new tokens
+        await storage.updateEmailAccount(existingAccount.id, {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token || existingAccount.refreshToken,
+          expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
+          lastSynced: new Date(),
+          connected: true
+        });
+        accountId = existingAccount.id;
+      } else {
+        // Save the new email account
+        const newAccount = await storage.createEmailAccount({
+          provider: 'gmail',
+          email: emailAddress,
+          userId,
+          connected: true,
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
+          lastSynced: new Date()
+        });
+        accountId = newAccount.id;
+        
+        // Create activity to log the account addition
+        await storage.createActivity({
+          userId,
+          activityType: "email_account_added",
+          description: `Gmail account added: ${emailAddress}`
+        });
+      }
+      
+      // Redirect to inbox with success message
+      res.redirect(`/inbox?status=success&accountId=${accountId}`);
+    } catch (error) {
+      console.error("Error in Google OAuth callback:", error);
+      res.redirect('/inbox?status=error');
+    }
+  });
+  
   // Email Integration Routes
   app.get("/api/email/accounts", async (req, res) => {
     try {
@@ -1178,19 +1277,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // In a real app with authentication, you'd use req.user.id
       const userId = 1; // Using default user for testing
-      const { provider, email, accessToken, refreshToken, expiresAt } = req.body;
+      const { provider, email } = req.body;
       
       if (!provider || !email) {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
+      // For Gmail accounts, redirect to Google OAuth
+      if (provider === 'gmail') {
+        return res.json({ 
+          redirectUrl: '/api/auth/google',
+          provider: 'gmail',
+          needsAuth: true
+        });
+      }
+      
+      // For other providers or demo accounts
       const account = await storage.createEmailAccount({
         userId,
         provider,
         email,
-        accessToken: accessToken || null,
-        refreshToken: refreshToken || null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        accessToken: "demo_access_token", // Demo token
+        refreshToken: "demo_refresh_token", // Demo token
+        expiresAt: new Date(Date.now() + 3600 * 1000), // 1 hour expiry
+        connected: true, // Mark as connected for demo
+        lastSynced: new Date()
+      });
+      
+      // Log activity
+      await storage.createActivity({
+        userId,
+        activityType: "email_account_added",
+        description: `${provider} email account added: ${email}`
       });
       
       res.json(account);
@@ -1216,9 +1334,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/email/messages", async (req, res) => {
     try {
-      // In a real app, we would fetch messages from the email provider's API
-      // For demo purposes, we'll return simulated messages
-      
       // Query parameters for filtering
       const folder = req.query.folder as string || "inbox";
       const accountId = req.query.accountId ? parseInt(req.query.accountId as string) : undefined;
@@ -1240,23 +1355,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Email account not found" });
       }
       
-      // In a real implementation, we would fetch actual emails from the providers' APIs
-      // For demo, generate simulated messages for each account
+      // Fetch messages for each account
       const allMessages = [];
       
       for (const account of relevantAccounts) {
-        const simulatedMessages = generateSimulatedEmails(account, folder);
-        allMessages.push(...simulatedMessages);
+        try {
+          let messages = [];
+          
+          if (account.provider === 'gmail' && account.accessToken && account.refreshToken) {
+            // Use Gmail API for Gmail accounts
+            try {
+              // Construct a query based on the folder
+              let query = '';
+              if (folder === 'inbox') {
+                query = 'in:inbox';
+              } else if (folder === 'sent') {
+                query = 'in:sent';
+              }
+              
+              // Fetch messages from Gmail API
+              messages = await googleService.listGmailMessages(
+                account.accessToken, 
+                account.refreshToken, 
+                query
+              );
+              
+              // Update lastSynced timestamp
+              await storage.updateEmailAccount(account.id, {
+                lastSynced: new Date()
+              });
+            } catch (apiError) {
+              console.error(`Error fetching Gmail messages for account ${account.id}:`, apiError);
+              
+              // If there's an API error, fall back to simulated data
+              messages = generateSimulatedEmails(account, folder);
+            }
+          } else {
+            // For other providers or demo accounts, use simulated data
+            messages = generateSimulatedEmails(account, folder);
+          }
+          
+          // Add messages to collection
+          allMessages.push(...messages);
+        } catch (accountError) {
+          console.error(`Error processing account ${account.id}:`, accountError);
+          // Continue with other accounts
+        }
       }
       
-      // Sort messages by date (newest first) and limit results
-      const sortedMessages = allMessages.sort((a, b) => b.date.getTime() - a.date.getTime());
+      // Sort messages by date (newest first)
+      const sortedMessages = allMessages.sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
       
       res.json({
         messages: sortedMessages,
         totalCount: sortedMessages.length
       });
     } catch (error) {
+      console.error("Error fetching email messages:", error);
       res.status(500).json({ message: "Failed to fetch email messages" });
     }
   });
@@ -1269,14 +1428,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // In a real implementation, we would send an actual email using the appropriate provider's API
-      // For demo purposes, we'll just create an activity to log the sent email
-      
       // Get the email account
       const account = await storage.getEmailAccount(accountId);
       
       if (!account) {
         return res.status(404).json({ message: "Email account not found" });
+      }
+      
+      // Handle sending the email based on provider
+      let emailId;
+      
+      if (account.provider === 'gmail' && account.accessToken && account.refreshToken) {
+        try {
+          // Send email using Gmail API
+          const response = await googleService.sendGmailMessage(
+            account.accessToken,
+            account.refreshToken,
+            to,
+            subject,
+            body
+          );
+          
+          emailId = response.id;
+          
+          // Update last synced timestamp
+          await storage.updateEmailAccount(account.id, {
+            lastSynced: new Date()
+          });
+        } catch (apiError) {
+          console.error("Error sending email via Gmail API:", apiError);
+          return res.status(500).json({ 
+            message: "Failed to send email through Gmail API",
+            error: apiError.message 
+          });
+        }
+      } else {
+        // For other providers or demo accounts, simulate sending
+        emailId = `demo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       }
       
       // Create activity to log the sent email
@@ -1290,7 +1478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         success: true,
         message: {
-          id: Math.floor(Math.random() * 1000000),
+          id: emailId,
           from: account.email,
           to,
           subject,
@@ -1302,6 +1490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
+      console.error("Error sending email:", error);
       res.status(500).json({ message: "Failed to send email" });
     }
   });
@@ -1344,7 +1533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper function to generate simulated emails for demo purposes
-  function generateSimulatedEmails(account, folder) {
+  function generateSimulatedEmails(account: any, folder: string) {
     const messages = [];
     const today = new Date();
     

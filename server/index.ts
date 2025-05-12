@@ -36,6 +36,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Check for Google OAuth credentials
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  log("Warning: Google API credentials are not set. Gmail integration will not work properly.", "server");
+  log("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.", "server");
+}
+
 (async () => {
   const server = await registerRoutes(app);
 
