@@ -138,6 +138,15 @@ export const TaskStatus = {
   COMPLETED: "completed",
 } as const;
 
+// Task action types
+export const TaskActionType = {
+  FOLLOW_UP_EMAIL: "follow_up_email",
+  SCHEDULE_APPOINTMENT: "schedule_appointment",
+  SEND_QUOTE: "send_quote",
+  SEND_INVOICE: "send_invoice",
+  CUSTOM: "custom",
+} as const;
+
 // Task schema
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
