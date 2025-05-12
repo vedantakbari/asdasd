@@ -203,12 +203,12 @@ const Clients: React.FC = () => {
           </DropdownMenu>
           
           {/* Add new client button */}
-          <Link href="/leads/new">
-            <Button>
+          <Button asChild>
+            <Link href="/leads/new?isClient=true">
               <Plus className="h-4 w-4 mr-2" />
               Add Client
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
       
