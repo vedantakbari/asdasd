@@ -22,8 +22,9 @@ type DealFormProps = {
 
 const dealSchema = insertDealSchema.extend({
   value: z.string().transform(val => parseFloat(val)),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.string().optional().transform(val => val === '' ? undefined : val),
+  endDate: z.string().optional().transform(val => val === '' ? undefined : val),
+  customerId: z.number(),
 });
 
 type DealFormValues = z.infer<typeof dealSchema>;
@@ -68,15 +69,27 @@ const DealForm: React.FC<DealFormProps> = ({ deal, isEdit = false, leadId }) => 
   // If converting from lead, pre-fill the form
   useEffect(() => {
     if (lead && !isEdit) {
-      form.setValue('title', lead.notes?.split('\n')[0] || 'New Project');
+      // Set form values from lead
+      form.setValue('title', lead.name ? `Project for ${lead.name}` : 'New Project');
       form.setValue('value', lead.value ? String(lead.value) : '0');
       form.setValue('description', lead.notes || '');
       
-      // If lead has a customer, set customerId
-      // Note: In a real implementation, you would need to ensure there's a customer record
-      // or create one from the lead data
+      // If we have customers, try to find a matching one or set to the first one
+      if (customers.length > 0) {
+        // Try to find a customer with matching name/email to the lead
+        const matchingCustomer = customers.find(
+          (c: any) => c.name === lead.name || c.email === lead.email
+        );
+        
+        if (matchingCustomer) {
+          form.setValue('customerId', matchingCustomer.id);
+        } else {
+          // Default to first customer if no match found
+          form.setValue('customerId', customers[0].id);
+        }
+      }
     }
-  }, [lead, form, isEdit]);
+  }, [lead, form, isEdit, customers]);
 
   const createDealMutation = useMutation({
     mutationFn: async (data: DealFormValues) => {

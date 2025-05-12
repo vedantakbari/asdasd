@@ -2,7 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { insertLeadSchema, Lead, LeadStatus } from '@shared/schema';
+import { insertLeadSchema, Lead, LeadStatus, TaskActionType } from '@shared/schema';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ const leadSchema = insertLeadSchema.extend({
   value: z.string().optional().transform(val => (val === '' ? undefined : parseFloat(val))),
   isClient: z.boolean().optional(),
   kanbanLane: z.string().optional(),
+  nextActivityDate: z.string().optional().transform(val => val === '' ? undefined : val),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
@@ -260,9 +261,20 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false, isClient = fa
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Next Activity</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Follow-up call, Send proposal, etc." {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select activity type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={TaskActionType.FOLLOW_UP_EMAIL}>Follow Up Email</SelectItem>
+                        <SelectItem value={TaskActionType.SCHEDULE_APPOINTMENT}>Schedule Appointment</SelectItem>
+                        <SelectItem value={TaskActionType.SEND_QUOTE}>Send Quote</SelectItem>
+                        <SelectItem value={TaskActionType.SEND_INVOICE}>Send Invoice</SelectItem>
+                        <SelectItem value={TaskActionType.CUSTOM}>Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
