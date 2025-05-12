@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,9 +28,26 @@ import {
   AlertCircle,
   CheckCircle,
   RefreshCw,
+  Plus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+
+interface EmailAccount {
+  id: number;
+  userId: number;
+  provider: string;
+  email: string;
+  connected: boolean | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: string | null;
+  lastSynced: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface EmailMessage {
   id: number;
@@ -46,57 +63,17 @@ interface EmailMessage {
   leadId: number | null;
 }
 
-// Sample email data
-const sampleEmails: EmailMessage[] = [
-  {
-    id: 1,
-    from: 'john.smith@example.com',
-    fromName: 'John Smith',
-    to: 'you@yourcompany.com',
-    subject: 'Kitchen Renovation Quote',
-    body: 'Hi there,\n\nI\'m interested in getting a quote for my kitchen renovation. We have a 200 sq ft kitchen that needs a complete overhaul including new cabinets, countertops, and appliances.\n\nCould you provide an estimate and timeline?\n\nThanks,\nJohn Smith',
-    date: new Date('2023-05-10T14:32:00'),
-    read: false,
-    folder: 'inbox',
-    leadId: null
-  },
-  {
-    id: 2,
-    from: 'sarah.johnson@example.com',
-    fromName: 'Sarah Johnson',
-    to: 'you@yourcompany.com',
-    subject: 'Bathroom Remodel Follow-up',
-    body: 'Hello,\n\nI just wanted to follow up on our conversation last week about my bathroom remodel project. Have you had a chance to put together a proposal?\n\nBest regards,\nSarah Johnson',
-    date: new Date('2023-05-09T09:15:00'),
-    read: true,
-    folder: 'inbox',
-    leadId: 3
-  },
-  {
-    id: 3,
-    from: 'michael.parker@example.com',
-    fromName: 'Michael Parker',
-    to: 'you@yourcompany.com',
-    subject: 'Deck Installation Questions',
-    body: 'Good afternoon,\n\nI\'m considering having a new deck installed and I have a few questions about the materials you use and your installation process.\n\nDo you offer composite decking options? What is your typical timeline for a project like this?\n\nThank you,\nMichael Parker',
-    date: new Date('2023-05-08T16:45:00'),
-    read: true,
-    folder: 'inbox',
-    leadId: null
-  },
-  {
-    id: 4,
-    from: 'you@yourcompany.com',
-    to: 'lisa.brown@example.com',
-    toName: 'Lisa Brown',
-    subject: 'RE: Home Office Renovation',
-    body: 'Hi Lisa,\n\nThank you for your inquiry about a home office renovation. We would be happy to help with your project.\n\nCould you please provide some more details about the space, including dimensions and your vision for the finished office?\n\nI\'m available for a phone consultation this week if that would be helpful.\n\nBest regards,\nYour Name\nYour Company',
-    date: new Date('2023-05-07T11:20:00'),
-    read: true,
-    folder: 'sent',
-    leadId: 5
-  }
-];
+// Email account dialog state
+interface AddEmailDialogData {
+  provider: string;
+  email: string;
+}
+
+// Convert API date string to Date object
+const parseDate = (dateString: string | Date): Date => {
+  if (dateString instanceof Date) return dateString;
+  return new Date(dateString);
+};
 
 const Inbox: React.FC = () => {
   const [activeFolder, setActiveFolder] = useState('inbox');
