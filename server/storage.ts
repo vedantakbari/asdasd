@@ -907,6 +907,26 @@ export class MemStorage implements IStorage {
     ];
     
     activities.forEach(activity => this.createActivity(activity));
+    
+    // Sample email accounts
+    const emailAccounts: InsertEmailAccount[] = [
+      {
+        userId: 1,
+        provider: "gmail",
+        email: "michael@example.com",
+        accessToken: null,
+        refreshToken: null,
+        connected: false,
+        providerUserId: null,
+        settings: {
+          syncFrequency: "15min",
+          autoRespond: false,
+          signature: "Michael Scott\nRegional Manager\nDunder Mifflin Paper Company"
+        }
+      }
+    ];
+
+    emailAccounts.forEach(account => this.createEmailAccount(account));
   }
 }
 
