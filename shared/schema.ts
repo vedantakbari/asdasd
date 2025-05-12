@@ -154,11 +154,15 @@ export const tasks = pgTable("tasks", {
   description: text("description"),
   priority: text("priority").default(TaskPriority.MEDIUM).notNull(),
   status: text("status").default(TaskStatus.TODO).notNull(),
+  actionType: text("action_type"), // Follow-up email, Schedule Appointment, etc.
+  customActionType: text("custom_action_type"), // For user-defined action types
+  scheduledFor: timestamp("scheduled_for"), // When this task should be performed
   dueDate: timestamp("due_date"),
   assigneeId: integer("assignee_id"),
   relatedLeadId: integer("related_lead_id"),
   relatedDealId: integer("related_deal_id"),
   relatedCustomerId: integer("related_customer_id"),
+  addToCalendar: boolean("add_to_calendar").default(false), // Flag to indicate if task should be added to calendar
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
