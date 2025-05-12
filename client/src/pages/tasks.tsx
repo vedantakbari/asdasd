@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Route, Switch, useLocation } from 'wouter';
 import Header from '@/components/layout/header';
 import TaskForm from '@/components/tasks/task-form';
@@ -26,7 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Task, TaskStatus, TaskPriority } from '@shared/schema';
+import { Calendar, CheckCircle, Clock, Mail, FileText, CreditCard, PlusCircle } from 'lucide-react';
+import { Task, TaskStatus, TaskPriority, TaskActionType } from '@shared/schema';
 import { queryClient } from '@/lib/queryClient';
 
 const Tasks: React.FC = () => {
@@ -36,13 +37,23 @@ const Tasks: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [actionTypeFilter, setActionTypeFilter] = useState<string | null>(null);
+  const [customActionTypes, setCustomActionTypes] = useState<string[]>([]);
+  
+  // Load saved custom action types on component mount
+  useEffect(() => {
+    const savedCustomTypes = localStorage.getItem('customActionTypes');
+    if (savedCustomTypes) {
+      setCustomActionTypes(JSON.parse(savedCustomTypes));
+    }
+  }, []);
   
   // Fetch tasks
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['/api/tasks'],
   });
   
-  // Filter tasks based on search term, status, and priority
+  // Filter tasks based on search term, status, priority, and action type
   const filteredTasks = tasks.filter((task: Task) => {
     const matchesSearch = 
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -51,7 +62,24 @@ const Tasks: React.FC = () => {
     const matchesStatus = statusFilter ? task.status === statusFilter : true;
     const matchesPriority = priorityFilter ? task.priority === priorityFilter : true;
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    let matchesActionType = true;
+    if (actionTypeFilter) {
+      if (actionTypeFilter === 'custom') {
+        // For custom action types, check if the task uses any custom action
+        matchesActionType = task.actionType === TaskActionType.CUSTOM;
+      } else if (actionTypeFilter === 'scheduled') {
+        // For scheduled tasks, check if they have a scheduled time
+        matchesActionType = !!task.scheduledFor;
+      } else if (actionTypeFilter === 'calendar') {
+        // For calendar tasks, check if they're added to the calendar
+        matchesActionType = !!task.addToCalendar;
+      } else {
+        // For standard action types, check if the action type matches
+        matchesActionType = task.actionType === actionTypeFilter;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesActionType;
   });
   
   // Group tasks by status
@@ -95,13 +123,13 @@ const Tasks: React.FC = () => {
               className="w-full"
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Select 
               value={statusFilter || ''} 
               onValueChange={(value) => setStatusFilter(value || null)}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">All Statuses</SelectItem>
@@ -115,14 +143,75 @@ const Tasks: React.FC = () => {
               value={priorityFilter || ''} 
               onValueChange={(value) => setPriorityFilter(value || null)}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by priority" />
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">All Priorities</SelectItem>
                 <SelectItem value={TaskPriority.HIGH}>High</SelectItem>
                 <SelectItem value={TaskPriority.MEDIUM}>Medium</SelectItem>
                 <SelectItem value={TaskPriority.LOW}>Low</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select 
+              value={actionTypeFilter || ''} 
+              onValueChange={(value) => setActionTypeFilter(value || null)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Action Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Action Types</SelectItem>
+                
+                <SelectItem value={TaskActionType.FOLLOW_UP_EMAIL}>
+                  <div className="flex items-center">
+                    <Mail className="mr-2 h-4 w-4" />
+                    <span>Follow Up Email</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value={TaskActionType.SCHEDULE_APPOINTMENT}>
+                  <div className="flex items-center">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span>Schedule Appointment</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value={TaskActionType.SEND_QUOTE}>
+                  <div className="flex items-center">
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span>Send Quote</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value={TaskActionType.SEND_INVOICE}>
+                  <div className="flex items-center">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    <span>Send Invoice</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value="custom">
+                  <div className="flex items-center">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    <span>Custom Action</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value="scheduled">
+                  <div className="flex items-center">
+                    <Clock className="mr-2 h-4 w-4" />
+                    <span>Scheduled</span>
+                  </div>
+                </SelectItem>
+                
+                <SelectItem value="calendar">
+                  <div className="flex items-center">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <span>Calendar Events</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
