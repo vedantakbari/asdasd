@@ -483,6 +483,60 @@ const Inbox: React.FC = () => {
         </div>
       </div>
       
+      {/* Add Email Account Dialog */}
+      <Dialog open={isAddEmailAccountOpen} onOpenChange={setIsAddEmailAccountOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Connect Email Account</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="provider" className="text-right text-sm">
+                Provider
+              </label>
+              <select
+                id="provider"
+                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={addEmailData.provider}
+                onChange={(e) => setAddEmailData({ ...addEmailData, provider: e.target.value })}
+              >
+                <option value="gmail">Gmail</option>
+                <option value="outlook">Outlook</option>
+                <option value="yahoo">Yahoo</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="email" className="text-right text-sm">
+                Email
+              </label>
+              <Input
+                id="email"
+                className="col-span-3"
+                placeholder="youremail@example.com"
+                value={addEmailData.email}
+                onChange={(e) => setAddEmailData({ ...addEmailData, email: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={() => addEmailAccountMutation.mutate(addEmailData)}
+              disabled={!addEmailData.email || addEmailAccountMutation.isPending}
+            >
+              {addEmailAccountMutation.isPending ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Connecting...
+                </>
+              ) : (
+                "Connect Account"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <div className="flex gap-4 mb-4">
         <Input
           placeholder="Search emails..."
@@ -640,6 +694,26 @@ const Inbox: React.FC = () => {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
+            {emailAccounts.length > 1 && (
+              <div className="grid grid-cols-4 items-center gap-2">
+                <label htmlFor="from" className="text-right text-sm font-medium">
+                  From:
+                </label>
+                <select
+                  id="from"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm col-span-3"
+                  value={selectedAccountId || emailAccounts[0]?.id}
+                  onChange={(e) => setSelectedAccountId(parseInt(e.target.value))}
+                >
+                  {emailAccounts.map(account => (
+                    <option key={account.id} value={account.id}>
+                      {account.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
             <div className="grid grid-cols-4 items-center gap-2">
               <label htmlFor="to" className="text-right text-sm font-medium">
                 To:
@@ -649,6 +723,7 @@ const Inbox: React.FC = () => {
                 value={composeData.to}
                 onChange={(e) => setComposeData({...composeData, to: e.target.value})}
                 className="col-span-3"
+                placeholder="recipient@example.com"
               />
             </div>
             
@@ -661,6 +736,7 @@ const Inbox: React.FC = () => {
                 value={composeData.subject}
                 onChange={(e) => setComposeData({...composeData, subject: e.target.value})}
                 className="col-span-3"
+                placeholder="Email subject"
               />
             </div>
             
@@ -674,6 +750,7 @@ const Inbox: React.FC = () => {
                 onChange={(e) => setComposeData({...composeData, body: e.target.value})}
                 className="col-span-3"
                 rows={10}
+                placeholder="Write your message here..."
               />
             </div>
           </div>
@@ -685,9 +762,19 @@ const Inbox: React.FC = () => {
             <Button 
               type="submit" 
               onClick={handleComposeSubmit}
-              disabled={!composeData.to || !composeData.subject}
+              disabled={!composeData.to || !composeData.subject || !composeData.body || sendEmailMutation.isPending}
             >
-              Send
+              {sendEmailMutation.isPending ? (
+                <>
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send size={16} className="mr-2" />
+                  Send
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
