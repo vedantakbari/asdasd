@@ -19,7 +19,7 @@ import {
   CalendarPlus 
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 
 interface KanbanColumn {
   id: string;
