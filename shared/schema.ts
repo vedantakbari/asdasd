@@ -53,6 +53,7 @@ export const leads = pgTable("leads", {
   labels: json("labels").default([]), // Array of labels for the lead
   isClient: boolean("is_client").default(false), // Flag to mark if converted to client
   kanbanLane: text("kanban_lane"), // Kanban lane for client view
+  archived: boolean("archived").default(false), // Flag to mark if lead is archived
   customFields: json("custom_fields"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

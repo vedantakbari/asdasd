@@ -106,7 +106,7 @@ const LeadList: React.FC = () => {
   // Bulk lead actions mutations
   const bulkArchiveMutation = useMutation({
     mutationFn: async (ids: number[]) => {
-      return apiRequest('PATCH', '/api/leads/bulk', { ids, action: 'archive' });
+      return apiRequest('PATCH', '/api/leads/bulk-actions', { ids, action: 'archive' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });

@@ -37,6 +37,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
+  
+  // Bulk actions for leads
+  app.patch("/api/leads/bulk-actions", async (req, res) => {
+    try {
+      const { ids, action } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || !action) {
+        return res.status(400).json({ message: "Invalid request. Provide ids array and action." });
+      }
+      
+      // Implement different bulk actions
+      if (action === "archive") {
+        // Mark leads as archived
+        for (const id of ids) {
+          const lead = await storage.getLead(id);
+          if (lead) {
+            await storage.updateLead(id, { archived: true });
+            
+            await storage.createActivity({
+              userId: 1,
+              activityType: "lead_archived",
+              description: `Lead archived - ${lead.name}`,
+              relatedLeadId: id
+            });
+          }
+        }
+        return res.json({ success: true, message: `${ids.length} leads archived.` });
+      }
+      
+      res.status(400).json({ message: "Invalid action specified." });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to perform bulk action on leads" });
+    }
+  });
 
   app.get("/api/leads/:id", async (req, res) => {
     try {
@@ -122,39 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Bulk actions for leads
-  app.patch("/api/leads/bulk", async (req, res) => {
-    try {
-      const { ids, action } = req.body;
-      
-      if (!ids || !Array.isArray(ids) || !action) {
-        return res.status(400).json({ message: "Invalid request. Provide ids array and action." });
-      }
-      
-      // Implement different bulk actions
-      if (action === "archive") {
-        // Mark leads as archived
-        for (const id of ids) {
-          const lead = await storage.getLead(id);
-          if (lead) {
-            await storage.updateLead(id, { archived: true });
-            
-            await storage.createActivity({
-              userId: 1,
-              activityType: "lead_archived",
-              description: `Lead archived - ${lead.name}`,
-              relatedLeadId: id
-            });
-          }
-        }
-        return res.json({ success: true, message: `${ids.length} leads archived.` });
-      }
-      
-      res.status(400).json({ message: "Invalid action specified." });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to perform bulk action on leads" });
-    }
-  });
+
 
   app.delete("/api/leads/:id", async (req, res) => {
     try {
