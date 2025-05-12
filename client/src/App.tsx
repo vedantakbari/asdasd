@@ -21,8 +21,11 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/leads/new" component={Leads} />
+      <Route path="/leads/:id" component={Leads} />
       <Route path="/leads" component={Leads} />
+      <Route path="/clients/new" component={Clients} />
+      <Route path="/clients/:id" component={Clients} />
       <Route path="/clients" component={Clients} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/booking/:userId" component={BookingPage} />
@@ -31,6 +34,7 @@ function Router() {
       <Route path="/payments" component={Payments} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />
+      <Route path="/" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );

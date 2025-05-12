@@ -17,17 +17,24 @@ import { useLocation } from 'wouter';
 type LeadFormProps = {
   lead?: Lead;
   isEdit?: boolean;
+  isClient?: boolean;
 };
 
 const leadSchema = insertLeadSchema.extend({
   value: z.string().optional().transform(val => (val === '' ? undefined : parseFloat(val))),
+  isClient: z.boolean().optional(),
+  kanbanLane: z.string().optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
 
-const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false }) => {
-  const [, navigate] = useLocation();
+const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false, isClient = false }) => {
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
+  
+  // Check URL for isClient parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const isClientParam = urlParams.get('isClient') === 'true' || isClient;
   const queryClient = useQueryClient();
 
   const defaultValues: Partial<LeadFormValues> = lead
@@ -36,7 +43,9 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false }) => {
         value: lead.value !== null ? String(lead.value) : '',
       }
     : {
-        status: LeadStatus.NEW,
+        status: isClientParam ? LeadStatus.CLIENT : LeadStatus.NEW,
+        isClient: isClientParam,
+        kanbanLane: isClientParam ? 'NEW_CLIENT' : undefined,
         source: '',
         name: '',
         company: '',
@@ -60,16 +69,17 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false }) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/clients'] });
       toast({
         title: 'Success',
-        description: 'Lead created successfully',
+        description: isClientParam ? 'Client created successfully' : 'Lead created successfully',
       });
-      navigate('/leads');
+      navigate(isClientParam ? '/clients' : '/leads');
     },
     onError: (error) => {
       toast({
         title: 'Error',
-        description: `Failed to create lead: ${error.message}`,
+        description: `Failed to create ${isClientParam ? 'client' : 'lead'}: ${error.message}`,
         variant: 'destructive',
       });
     },

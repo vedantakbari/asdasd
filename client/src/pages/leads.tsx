@@ -17,13 +17,22 @@ const Leads: React.FC = () => {
     <main className="flex-1 flex flex-col overflow-hidden">
       <Switch>
         <Route path="/leads/new">
-          <Header 
-            title="New Lead" 
-            description="Create a new sales lead"
-          />
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
-            <LeadForm />
-          </div>
+          {() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isClient = urlParams.get('isClient') === 'true';
+
+            return (
+              <>
+                <Header 
+                  title={isClient ? "New Client" : "New Lead"} 
+                  description={isClient ? "Create a new client" : "Create a new sales lead"}
+                />
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+                  <LeadForm isClient={isClient} />
+                </div>
+              </>
+            );
+          }}
         </Route>
         
         <Route path="/leads/:id">

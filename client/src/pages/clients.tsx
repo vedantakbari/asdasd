@@ -30,6 +30,13 @@ interface KanbanColumn {
 const Clients: React.FC = () => {
   const [filter, setFilter] = useState<string | null>(null);
   const [draggingClient, setDraggingClient] = useState<Lead | null>(null);
+  const [location] = useLocation();
+  
+  // If on the new client page, redirect to the leads form with isClient=true
+  if (location === '/clients/new') {
+    window.location.href = '/leads/new?isClient=true';
+    return null;
+  }
   
   // Fetch clients (leads with isClient = true)
   const { data: clients = [], isLoading } = useQuery<Lead[]>({
