@@ -930,6 +930,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
       configured: isStripeConfigured()
     });
   });
+  
+  // Google Calendar Integration Routes
+  app.get("/api/google-calendar/settings", async (req, res) => {
+    try {
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const settings = await storage.getGoogleCalendarSettings(userId);
+      res.json(settings || { connected: false });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch Google Calendar settings" });
+    }
+  });
+  
+  app.post("/api/google-calendar/settings", async (req, res) => {
+    try {
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const { clientId, clientSecret, redirectUri } = req.body;
+      
+      if (!clientId || !clientSecret || !redirectUri) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Check if settings already exist
+      let settings = await storage.getGoogleCalendarSettings(userId);
+      
+      if (settings) {
+        // Update existing settings
+        settings = await storage.updateGoogleCalendarSettings(userId, {
+          clientId,
+          clientSecret,
+          redirectUri,
+          connected: false // Reset connection status when credentials change
+        });
+      } else {
+        // Create new settings
+        settings = await storage.createGoogleCalendarSettings({
+          userId,
+          clientId,
+          clientSecret,
+          redirectUri,
+          connected: false,
+        });
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to save Google Calendar settings" });
+    }
+  });
+  
+  // Google OAuth endpoints
+  app.get("/api/google/auth-url", async (req, res) => {
+    try {
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const settings = await storage.getGoogleCalendarSettings(userId);
+      
+      if (!settings || !settings.clientId || !settings.redirectUri) {
+        return res.status(400).json({ message: "Google Calendar settings not configured" });
+      }
+      
+      // Build the Google OAuth URL
+      const scopes = [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events'
+      ];
+      
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${settings.clientId}&redirect_uri=${encodeURIComponent(settings.redirectUri)}&response_type=code&scope=${encodeURIComponent(scopes.join(' '))}&access_type=offline&prompt=consent`;
+      
+      res.json({ authUrl });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+  
+  app.post("/api/google/callback", async (req, res) => {
+    try {
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Authorization code is required" });
+      }
+      
+      // In a real app with authentication, you'd use req.user.id
+      const userId = 1; // Using default user for testing
+      const settings = await storage.getGoogleCalendarSettings(userId);
+      
+      if (!settings || !settings.clientId || !settings.clientSecret || !settings.redirectUri) {
+        return res.status(400).json({ message: "Google Calendar settings not configured" });
+      }
+      
+      // Exchange the code for tokens
+      // In a real implementation, we would make an actual HTTP request to Google's token endpoint
+      // For now, we'll just simulate the exchange
+      
+      // Update settings with the tokens
+      await storage.updateGoogleCalendarSettings(userId, {
+        // In a real app, these would come from Google's response
+        refreshToken: "simulated_refresh_token",
+        accessToken: "simulated_access_token",
+        tokenExpiry: new Date(Date.now() + 3600 * 1000), // 1 hour from now
+        connected: true,
+        primaryCalendarId: "primary"
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to exchange authorization code for tokens" });
+    }
+  });
+  
+  // Public calendar booking endpoints
+  app.get("/api/calendar/public/:userId", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      const settings = await storage.getGoogleCalendarSettings(userId);
+      
+      if (!settings || !settings.connected) {
+        return res.status(404).json({ message: "Calendar not found or not available for booking" });
+      }
+      
+      // In a real app, we would fetch available time slots from Google Calendar
+      // For demo purposes, we'll return a simulated schedule
+      const today = new Date();
+      const availableSlots = [];
+      
+      // Generate time slots for the next 7 days
+      for (let i = 1; i <= 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        // Generate 9am-5pm slots in 30 min increments
+        for (let hour = 9; hour < 17; hour++) {
+          for (let min = 0; min < 60; min += 30) {
+            const startTime = new Date(date);
+            startTime.setHours(hour, min, 0, 0);
+            
+            const endTime = new Date(startTime);
+            endTime.setMinutes(endTime.getMinutes() + 30);
+            
+            availableSlots.push({
+              id: `slot-${i}-${hour}-${min}`,
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              available: Math.random() > 0.3 // 70% of slots are available
+            });
+          }
+        }
+      }
+      
+      res.json({
+        userName: "Demo User", // In real app, fetch user's name
+        availableSlots: availableSlots.filter(slot => slot.available)
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch available calendar slots" });
+    }
+  });
+  
+  app.post("/api/calendar/book", async (req, res) => {
+    try {
+      const { userId, slotId, name, email, phone, note } = req.body;
+      
+      if (!userId || !slotId || !name || !email) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const settings = await storage.getGoogleCalendarSettings(userId);
+      
+      if (!settings || !settings.connected) {
+        return res.status(404).json({ message: "Calendar not found or not available for booking" });
+      }
+      
+      // In a real app, we would:
+      // 1. Parse the slotId to get the actual date/time
+      // 2. Create an event in Google Calendar
+      // 3. Create a lead in the CRM
+      // 4. Send confirmation emails
+      
+      // For demo purposes, we'll just create a lead and an appointment
+      const leadId = (await storage.createLead({
+        name,
+        email,
+        phone,
+        source: "Calendar Booking",
+        status: LeadStatus.NEW,
+        notes: note,
+        nextActivity: "Initial Consultation",
+        nextActivityDate: new Date(),
+        ownerId: userId
+      })).id;
+      
+      // Extract time from slot ID (format: slot-dayOffset-hour-minute)
+      const [_, dayOffsetStr, hourStr, minuteStr] = slotId.split('-');
+      const dayOffset = parseInt(dayOffsetStr);
+      const hour = parseInt(hourStr);
+      const minute = parseInt(minuteStr);
+      
+      const startTime = new Date();
+      startTime.setDate(startTime.getDate() + dayOffset);
+      startTime.setHours(hour, minute, 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + 30);
+      
+      const appointment = await storage.createAppointment({
+        title: `Consultation with ${name}`,
+        startTime,
+        endTime,
+        leadId,
+        description: note,
+      });
+      
+      // Create activity for the booking
+      await storage.createActivity({
+        userId,
+        activityType: "appointment_booked",
+        description: `${name} booked an appointment via public calendar`,
+        relatedLeadId: leadId
+      });
+      
+      res.json({ 
+        success: true, 
+        appointment 
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to book appointment" });
+    }
+  });
 
   // Create HTTP server
   const httpServer = createServer(app);
