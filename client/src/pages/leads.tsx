@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route, Switch, useLocation } from 'wouter';
+import { Route, Switch, useLocation, Link } from 'wouter';
 import Header from '@/components/layout/header';
 import LeadList from '@/components/leads/lead-list';
 import LeadForm from '@/components/leads/lead-form';
