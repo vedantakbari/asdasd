@@ -9,7 +9,7 @@ app.use(express.urlencoded({ extended: false }));
 // Add health check route with fallback to static file in production
 app.get("/", (_req, res) => {
   if (app.get("env") === "production") {
-    return res.sendFile("index.html", { root: "./public" });
+    return res.sendFile("index.html", { root: "./dist/public" });
   }
   res.status(200).send("OK");
 });
@@ -73,7 +73,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
       console.error("Error setting up static file serving:", e);
       
       // Add fallback middleware if serveStatic fails
-      app.use(express.static("./public"));
+      app.use(express.static("./dist/public"));
       
       // Add fallback catch-all route to serve index.html for all non-API routes
       app.use("*", (req, res, next) => {
