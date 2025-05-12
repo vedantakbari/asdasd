@@ -9,6 +9,7 @@ import MobileSidebar from "@/components/ui/mobile-sidebar";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
 import Clients from "@/pages/clients"; // Renamed from Deals
+import Deals from "@/pages/deals"; // For deal management
 import CalendarPage from "@/pages/calendar";
 import BookingPage from "@/pages/booking"; // Public booking page
 import Tasks from "@/pages/tasks";
@@ -22,11 +23,16 @@ function Router() {
   return (
     <Switch>
       <Route path="/leads/new" component={Leads} />
+      <Route path="/leads/:id/edit" component={Leads} />
       <Route path="/leads/:id" component={Leads} />
       <Route path="/leads" component={Leads} />
       <Route path="/clients/new" component={Clients} />
       <Route path="/clients/:id" component={Clients} />
       <Route path="/clients" component={Clients} />
+      <Route path="/deals/new" component={Deals} />
+      <Route path="/deals/:id/edit" component={Deals} />
+      <Route path="/deals/:id" component={Deals} />
+      <Route path="/deals" component={Deals} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/booking/:userId" component={BookingPage} />
       <Route path="/tasks" component={Tasks} />
