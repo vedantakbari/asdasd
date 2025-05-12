@@ -246,47 +246,100 @@ const Inbox: React.FC = () => {
   };
   
   const handleCreateLead = (email: EmailMessage) => {
-    // Would implement lead creation from email
-    toast({
-      title: 'Lead Created',
-      description: `A new lead has been created from ${email.fromName || email.from}.`,
+    convertToLeadMutation.mutate({
+      emailId: email.id,
+      fromEmail: email.from,
+      fromName: email.fromName
     });
   };
   
-  const renderEmailList = () => (
-    <div className="border rounded-md overflow-hidden">
-      {sortedEmails.length === 0 ? (
-        <div className="p-8 text-center text-gray-500">
-          No emails found in this folder
+  const renderEmailList = () => {
+    if (isLoadingEmails) {
+      return (
+        <div className="border rounded-md overflow-hidden flex items-center justify-center p-8">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mb-2"></div>
+            <p className="text-sm text-gray-500">Loading messages...</p>
+          </div>
         </div>
-      ) : (
-        <div className="divide-y">
-          {sortedEmails.map((email) => (
-            <div 
-              key={email.id}
-              className={`p-3 cursor-pointer hover:bg-gray-50 ${email.read ? '' : 'font-semibold bg-gray-50'} ${selectedEmail?.id === email.id ? 'bg-gray-100' : ''}`}
-              onClick={() => setSelectedEmail(email)}
-            >
-              <div className="flex justify-between mb-1">
-                <span className="text-sm">
-                  {email.folder === 'sent' ? email.toName || email.to : email.fromName || email.from}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {format(new Date(email.date), 'MMM d, h:mm a')}
-                </span>
-              </div>
-              <div className="text-sm font-medium truncate">{email.subject}</div>
-              <div className="text-xs text-gray-500 truncate mt-1">
-                {email.body.substring(0, 100)}...
-              </div>
-            </div>
-          ))}
+      );
+    }
+    
+    if (emailAccounts.length === 0) {
+      return (
+        <div className="border rounded-md overflow-hidden p-8 text-center">
+          <div className="flex flex-col items-center">
+            <Mail size={48} className="mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium mb-2">No Email Accounts Connected</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Connect your email account to see your messages here.
+            </p>
+            <Button onClick={() => setIsAddEmailAccountOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Email Account
+            </Button>
+          </div>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+    
+    return (
+      <div className="border rounded-md overflow-hidden">
+        {sortedEmails.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No emails found in this folder
+          </div>
+        ) : (
+          <div className="divide-y">
+            {sortedEmails.map((email) => (
+              <div 
+                key={email.id}
+                className={`p-3 cursor-pointer hover:bg-gray-50 ${email.read ? '' : 'font-semibold bg-gray-50'} ${selectedEmail?.id === email.id ? 'bg-gray-100' : ''}`}
+                onClick={() => setSelectedEmail(email)}
+              >
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm">
+                    {email.folder === 'sent' ? email.toName || email.to : email.fromName || email.from}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {format(new Date(email.date), 'MMM d, h:mm a')}
+                  </span>
+                </div>
+                <div className="text-sm font-medium truncate">{email.subject}</div>
+                <div className="text-xs text-gray-500 truncate mt-1">
+                  {email.body.substring(0, 100)}...
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
   
   const renderEmailDetail = () => {
+    if (isLoadingEmails) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+          <p>Loading messages...</p>
+        </div>
+      );
+    }
+    
+    if (emailAccounts.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
+          <Mail size={48} className="mb-4 opacity-20" />
+          <p className="mb-4">Connect an email account to get started</p>
+          <Button onClick={() => setIsAddEmailAccountOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Email Account
+          </Button>
+        </div>
+      );
+    }
+    
     if (!selectedEmail) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
@@ -319,7 +372,6 @@ const Inbox: React.FC = () => {
               variant="ghost" 
               size="sm" 
               onClick={() => {
-                // Would implement archive functionality
                 toast({
                   title: 'Email Archived',
                   description: 'The email has been moved to the archive folder.',
@@ -332,7 +384,6 @@ const Inbox: React.FC = () => {
               variant="ghost" 
               size="sm"
               onClick={() => {
-                // Would implement delete functionality
                 toast({
                   title: 'Email Deleted',
                   description: 'The email has been moved to the trash folder.',
@@ -351,9 +402,19 @@ const Inbox: React.FC = () => {
             size="sm" 
             className="self-start mb-4"
             onClick={() => handleCreateLead(selectedEmail)}
+            disabled={convertToLeadMutation.isPending}
           >
-            <FilePlus size={16} className="mr-2" />
-            Create Lead
+            {convertToLeadMutation.isPending ? (
+              <>
+                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                Converting...
+              </>
+            ) : (
+              <>
+                <FilePlus size={16} className="mr-2" />
+                Create Lead
+              </>
+            )}
           </Button>
         )}
         
@@ -392,6 +453,7 @@ const Inbox: React.FC = () => {
             variant="outline" 
             size="sm"
             onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
               toast({
                 title: 'Refreshing...',
                 description: 'Checking for new messages.',
@@ -402,7 +464,19 @@ const Inbox: React.FC = () => {
             Refresh
           </Button>
           
-          <Button onClick={() => setIsComposeOpen(true)}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsAddEmailAccountOpen(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Account
+          </Button>
+          
+          <Button 
+            onClick={() => setIsComposeOpen(true)}
+            disabled={emailAccounts.length === 0}
+          >
             <Mail size={16} className="mr-2" />
             Compose
           </Button>
@@ -416,6 +490,21 @@ const Inbox: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm"
         />
+        
+        {emailAccounts.length > 0 && (
+          <select 
+            className="h-10 border border-input rounded-md px-3 bg-background"
+            value={selectedAccountId || ''}
+            onChange={(e) => setSelectedAccountId(e.target.value ? parseInt(e.target.value) : undefined)}
+          >
+            <option value="">All Accounts</option>
+            {emailAccounts.map(account => (
+              <option key={account.id} value={account.id}>
+                {account.email}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       
       <div className="flex flex-1 gap-4 overflow-hidden">
@@ -482,13 +571,54 @@ const Inbox: React.FC = () => {
             
             <Separator className="my-2" />
             
-            <div className="rounded-md border p-2 flex justify-between items-center">
+            {emailAccounts.length === 0 ? (
+            <div 
+              className="rounded-md border p-2 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+              onClick={() => setIsAddEmailAccountOpen(true)}
+            >
               <div className="flex items-center">
                 <AlertCircle size={16} className="mr-2 text-blue-500" />
                 <span className="text-sm font-medium">Connect Email</span>
               </div>
-              <CheckCircle size={16} className="text-gray-400" />
+              <Plus size={16} className="text-gray-400" />
             </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Email Accounts</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => setIsAddEmailAccountOpen(true)}
+                >
+                  <Plus size={16} className="text-gray-400" />
+                </Button>
+              </div>
+              
+              {emailAccounts.map(account => (
+                <div 
+                  key={account.id}
+                  className={`rounded-md border p-2 flex justify-between items-center cursor-pointer hover:bg-gray-50 ${selectedAccountId === account.id ? 'bg-gray-100 border-primary' : ''}`}
+                  onClick={() => setSelectedAccountId(account.id === selectedAccountId ? undefined : account.id)}
+                >
+                  <div className="flex items-center">
+                    <Mail size={16} className="mr-2 text-gray-500" />
+                    <span className="text-sm truncate max-w-[120px]">{account.email}</span>
+                  </div>
+                  <Button
+                    variant="ghost" 
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteEmailAccountMutation.mutate(account.id);
+                    }}
+                  >
+                    <Trash size={16} className="text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
           </div>
         </div>
         
@@ -558,6 +688,68 @@ const Inbox: React.FC = () => {
               disabled={!composeData.to || !composeData.subject}
             >
               Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Email Account Dialog */}
+      <Dialog open={isAddEmailAccountOpen} onOpenChange={setIsAddEmailAccountOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect Email Account</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-2">
+              <label htmlFor="provider" className="text-right text-sm font-medium">
+                Provider:
+              </label>
+              <select
+                id="provider"
+                value={addEmailData.provider}
+                onChange={(e) => setAddEmailData({...addEmailData, provider: e.target.value})}
+                className="col-span-3 h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+              >
+                <option value="gmail">Gmail</option>
+                <option value="outlook">Outlook</option>
+                <option value="yahoo">Yahoo</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-2">
+              <label htmlFor="email" className="text-right text-sm font-medium">
+                Email Address:
+              </label>
+              <Input
+                id="email"
+                value={addEmailData.email}
+                onChange={(e) => setAddEmailData({...addEmailData, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="col-span-4 px-2 text-sm text-muted-foreground">
+              <p>
+                Connecting your email will allow you to view and respond to emails directly from this CRM.
+                {addEmailData.provider === 'gmail' && (
+                  <span> You'll need to authorize via Google to complete this process.</span>
+                )}
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddEmailAccountOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              onClick={() => addEmailAccountMutation.mutate(addEmailData)}
+              disabled={!addEmailData.email || addEmailAccountMutation.isPending}
+            >
+              {addEmailAccountMutation.isPending ? 'Connecting...' : 'Connect Email'}
             </Button>
           </DialogFooter>
         </DialogContent>
