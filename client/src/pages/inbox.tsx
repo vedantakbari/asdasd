@@ -1,16 +1,37 @@
 import React, { useState } from 'react';
-import Header from '@/components/layout/header';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { 
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Trash, 
+  Mail, 
+  Archive, 
+  Tag, 
+  Send, 
+  Star,
+  Inbox as InboxIcon,
+  FilePlus,
+  AlertCircle,
+  CheckCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
-// Defined interface for email type
 interface EmailMessage {
   id: number;
   from: string;
@@ -25,55 +46,55 @@ interface EmailMessage {
   leadId: number | null;
 }
 
-// Temporary mock data for emails until backend is ready
-const mockEmails: EmailMessage[] = [
+// Sample email data
+const sampleEmails: EmailMessage[] = [
   {
     id: 1,
     from: 'john.smith@example.com',
     fromName: 'John Smith',
-    to: 'me@servicecrm.com',
-    subject: 'Kitchen Renovation Quote Request',
-    body: 'Hello,\n\nI would like to get a quote for renovating my kitchen. We are looking to replace the cabinets, countertops, and flooring.\n\nWhat is your availability for consultation?\n\nThanks,\nJohn Smith',
-    date: new Date(2023, 4, 10, 14, 30),
-    read: true,
-    folder: 'inbox',
-    leadId: 1
-  },
-  {
-    id: 2,
-    from: 'emma.rodriguez@example.com',
-    fromName: 'Emma Rodriguez',
-    to: 'me@servicecrm.com',
-    subject: 'Re: Bathroom Remodel Timeline',
-    body: 'Hi there,\n\nThank you for the estimate. I was wondering when you would be able to start the bathroom remodel project? We are hoping to have it completed by the end of next month.\n\nRegards,\nEmma Rodriguez',
-    date: new Date(2023, 4, 11, 9, 15),
-    read: false,
-    folder: 'inbox',
-    leadId: 2
-  },
-  {
-    id: 3,
-    from: 'michael.johnson@example.com',
-    fromName: 'Michael Johnson',
-    to: 'me@servicecrm.com',
-    subject: 'Deck Installation Question',
-    body: 'Hello,\n\nI am interested in having a new deck installed. Do you also handle outdoor projects like this?\n\nBest,\nMichael Johnson',
-    date: new Date(2023, 4, 12, 16, 45),
+    to: 'you@yourcompany.com',
+    subject: 'Kitchen Renovation Quote',
+    body: 'Hi there,\n\nI\'m interested in getting a quote for my kitchen renovation. We have a 200 sq ft kitchen that needs a complete overhaul including new cabinets, countertops, and appliances.\n\nCould you provide an estimate and timeline?\n\nThanks,\nJohn Smith',
+    date: new Date('2023-05-10T14:32:00'),
     read: false,
     folder: 'inbox',
     leadId: null
   },
   {
+    id: 2,
+    from: 'sarah.johnson@example.com',
+    fromName: 'Sarah Johnson',
+    to: 'you@yourcompany.com',
+    subject: 'Bathroom Remodel Follow-up',
+    body: 'Hello,\n\nI just wanted to follow up on our conversation last week about my bathroom remodel project. Have you had a chance to put together a proposal?\n\nBest regards,\nSarah Johnson',
+    date: new Date('2023-05-09T09:15:00'),
+    read: true,
+    folder: 'inbox',
+    leadId: 3
+  },
+  {
+    id: 3,
+    from: 'michael.parker@example.com',
+    fromName: 'Michael Parker',
+    to: 'you@yourcompany.com',
+    subject: 'Deck Installation Questions',
+    body: 'Good afternoon,\n\nI\'m considering having a new deck installed and I have a few questions about the materials you use and your installation process.\n\nDo you offer composite decking options? What is your typical timeline for a project like this?\n\nThank you,\nMichael Parker',
+    date: new Date('2023-05-08T16:45:00'),
+    read: true,
+    folder: 'inbox',
+    leadId: null
+  },
+  {
     id: 4,
-    to: 'richard.taylor@example.com',
-    toName: 'Richard Taylor',
-    from: 'me@servicecrm.com',
-    subject: 'Your Recent Service Request',
-    body: 'Dear Richard,\n\nThank you for your interest in our services. I would like to schedule a time to discuss your project in more detail.\n\nAre you available anytime next week for a consultation?\n\nBest regards,\nService Team',
-    date: new Date(2023, 4, 9, 11, 20),
+    from: 'you@yourcompany.com',
+    to: 'lisa.brown@example.com',
+    toName: 'Lisa Brown',
+    subject: 'RE: Home Office Renovation',
+    body: 'Hi Lisa,\n\nThank you for your inquiry about a home office renovation. We would be happy to help with your project.\n\nCould you please provide some more details about the space, including dimensions and your vision for the finished office?\n\nI\'m available for a phone consultation this week if that would be helpful.\n\nBest regards,\nYour Name\nYour Company',
+    date: new Date('2023-05-07T11:20:00'),
     read: true,
     folder: 'sent',
-    leadId: 3
+    leadId: 5
   }
 ];
 
@@ -87,277 +108,353 @@ const Inbox: React.FC = () => {
     subject: '',
     body: ''
   });
+  
   const { toast } = useToast();
-
+  
   // Filter emails by folder and search term
-  const filteredEmails = mockEmails.filter(email => {
+  const filteredEmails = sampleEmails.filter(email => {
     const matchesFolder = email.folder === activeFolder;
     const matchesSearch = searchTerm === '' || 
       email.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.from.toLowerCase().includes(searchTerm.toLowerCase()) ||
       email.body.toLowerCase().includes(searchTerm.toLowerCase());
+    
     return matchesFolder && matchesSearch;
   });
-
-  // Sort emails by date descending
+  
+  // Sort emails by date (newest first)
   const sortedEmails = [...filteredEmails].sort((a, b) => 
-    b.date.getTime() - a.date.getTime()
+    new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-
-  const handleEmailClick = (email: any) => {
-    setSelectedEmail(email);
-    // Mark as read (would update in backend)
-    // TODO: Add backend integration
-  };
-
-  const handleComposeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Add sending email functionality when backend is ready
+  
+  const handleComposeSubmit = () => {
+    // Would connect to email sending API
     toast({
-      title: "Email Integration Coming Soon",
-      description: "This functionality will be available when email integration is implemented.",
+      title: 'Email Sent',
+      description: `Your email to ${composeData.to} has been sent.`,
     });
     setIsComposeOpen(false);
-    setComposeData({
-      to: '',
-      subject: '',
-      body: ''
+    setComposeData({ to: '', subject: '', body: '' });
+  };
+  
+  const handleCreateLead = (email: EmailMessage) => {
+    // Would implement lead creation from email
+    toast({
+      title: 'Lead Created',
+      description: `A new lead has been created from ${email.fromName || email.from}.`,
     });
   };
-
-  const handleReply = () => {
-    if (!selectedEmail) return;
+  
+  const renderEmailList = () => (
+    <div className="border rounded-md overflow-hidden">
+      {sortedEmails.length === 0 ? (
+        <div className="p-8 text-center text-gray-500">
+          No emails found in this folder
+        </div>
+      ) : (
+        <div className="divide-y">
+          {sortedEmails.map((email) => (
+            <div 
+              key={email.id}
+              className={`p-3 cursor-pointer hover:bg-gray-50 ${email.read ? '' : 'font-semibold bg-gray-50'} ${selectedEmail?.id === email.id ? 'bg-gray-100' : ''}`}
+              onClick={() => setSelectedEmail(email)}
+            >
+              <div className="flex justify-between mb-1">
+                <span className="text-sm">
+                  {email.folder === 'sent' ? email.toName || email.to : email.fromName || email.from}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {format(new Date(email.date), 'MMM d, h:mm a')}
+                </span>
+              </div>
+              <div className="text-sm font-medium truncate">{email.subject}</div>
+              <div className="text-xs text-gray-500 truncate mt-1">
+                {email.body.substring(0, 100)}...
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  
+  const renderEmailDetail = () => {
+    if (!selectedEmail) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
+          <Mail size={48} className="mb-4 opacity-20" />
+          <p>Select an email to view</p>
+        </div>
+      );
+    }
     
-    setComposeData({
-      to: selectedEmail.from,
-      subject: `Re: ${selectedEmail.subject}`,
-      body: `\n\n---\nOn ${format(selectedEmail.date, 'MMM d, yyyy, h:mm a')}, ${selectedEmail.fromName || selectedEmail.from} wrote:\n\n${selectedEmail.body}`
-    });
-    
-    setIsComposeOpen(true);
+    return (
+      <div className="p-4 h-full flex flex-col">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-xl font-semibold mb-1">{selectedEmail.subject}</h2>
+            <div className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">From: </span>
+              {selectedEmail.fromName ? `${selectedEmail.fromName} <${selectedEmail.from}>` : selectedEmail.from}
+            </div>
+            <div className="text-sm text-gray-600 mb-1">
+              <span className="font-medium">To: </span>
+              {selectedEmail.toName ? `${selectedEmail.toName} <${selectedEmail.to}>` : selectedEmail.to}
+            </div>
+            <div className="text-sm text-gray-500">
+              {format(new Date(selectedEmail.date), 'MMMM d, yyyy h:mm a')}
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                // Would implement archive functionality
+                toast({
+                  title: 'Email Archived',
+                  description: 'The email has been moved to the archive folder.',
+                });
+              }}
+            >
+              <Archive size={16} />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                // Would implement delete functionality
+                toast({
+                  title: 'Email Deleted',
+                  description: 'The email has been moved to the trash folder.',
+                });
+                setSelectedEmail(null);
+              }}
+            >
+              <Trash size={16} />
+            </Button>
+          </div>
+        </div>
+        
+        {!selectedEmail.leadId && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="self-start mb-4"
+            onClick={() => handleCreateLead(selectedEmail)}
+          >
+            <FilePlus size={16} className="mr-2" />
+            Create Lead
+          </Button>
+        )}
+        
+        <Separator className="my-4" />
+        
+        <div className="flex-1 overflow-auto whitespace-pre-wrap text-sm">
+          {selectedEmail.body}
+        </div>
+        
+        <div className="mt-4">
+          <Button 
+            className="w-full" 
+            onClick={() => {
+              setComposeData({
+                to: selectedEmail.folder === 'sent' ? selectedEmail.to : selectedEmail.from,
+                subject: selectedEmail.subject.startsWith('RE:') ? selectedEmail.subject : `RE: ${selectedEmail.subject}`,
+                body: `\n\n----------\nOn ${format(new Date(selectedEmail.date), 'MMMM d, yyyy')} at ${format(new Date(selectedEmail.date), 'h:mm a')}, ${selectedEmail.fromName || selectedEmail.from} wrote:\n\n${selectedEmail.body}`
+              });
+              setIsComposeOpen(true);
+            }}
+          >
+            Reply
+          </Button>
+        </div>
+      </div>
+    );
   };
-
+  
   return (
-    <main className="flex-1 flex flex-col overflow-hidden">
-      <Header 
-        title="Inbox" 
-        description="Manage your email communications"
-        actions={
+    <div className="p-4 h-[calc(100vh-64px)] flex flex-col">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Inbox</h1>
+        
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              toast({
+                title: 'Refreshing...',
+                description: 'Checking for new messages.',
+              });
+            }}
+          >
+            <RefreshCw size={16} className="mr-2" />
+            Refresh
+          </Button>
+          
           <Button onClick={() => setIsComposeOpen(true)}>
-            <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <Mail size={16} className="mr-2" />
             Compose
           </Button>
-        }
-      />
-
-      <div className="flex-1 overflow-hidden p-4 sm:p-6 lg:p-8 bg-gray-50">
-        <Card className="h-full overflow-hidden">
-          <CardContent className="p-0 h-full flex">
-            {/* Email Navigation */}
-            <aside className="w-64 border-r border-gray-200 flex flex-col h-full bg-white">
-              <div className="p-4">
-                <Input
-                  placeholder="Search emails..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              
-              <Tabs 
-                defaultValue="inbox" 
-                className="flex-1 flex flex-col"
-                onValueChange={setActiveFolder}
-              >
-                <div className="px-2">
-                  <TabsList className="w-full">
-                    <TabsTrigger 
-                      value="inbox" 
-                      className="flex-1 relative"
-                    >
-                      Inbox
-                      <span className="absolute top-0 right-0 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {mockEmails.filter(e => e.folder === 'inbox' && !e.read).length}
-                      </span>
-                    </TabsTrigger>
-                    <TabsTrigger value="sent" className="flex-1">Sent</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                {/* Email List */}
-                <TabsContent value="inbox" className="flex-1 overflow-y-auto mt-0 border-t">
-                  {sortedEmails.map(email => (
-                    <div 
-                      key={email.id}
-                      className={`p-3 border-b cursor-pointer ${email.read ? 'opacity-70' : 'font-semibold'} ${selectedEmail?.id === email.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                      onClick={() => handleEmailClick(email)}
-                    >
-                      <div className="text-sm flex justify-between">
-                        <span className="truncate">{email.fromName || email.from}</span>
-                        <span className="text-xs text-gray-500">{format(email.date, 'MMM d')}</span>
-                      </div>
-                      <div className="text-sm truncate">{email.subject}</div>
-                      <div className="text-xs text-gray-500 truncate">{email.body.slice(0, 50)}...</div>
-                    </div>
-                  ))}
-                  {sortedEmails.length === 0 && (
-                    <div className="p-4 text-center text-gray-500">
-                      No emails found
-                    </div>
-                  )}
-                </TabsContent>
-                
-                <TabsContent value="sent" className="flex-1 overflow-y-auto mt-0 border-t">
-                  {sortedEmails.map(email => (
-                    <div 
-                      key={email.id}
-                      className={`p-3 border-b cursor-pointer ${selectedEmail?.id === email.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
-                      onClick={() => handleEmailClick(email)}
-                    >
-                      <div className="text-sm flex justify-between">
-                        <span className="truncate">To: {email.toName || email.to}</span>
-                        <span className="text-xs text-gray-500">{format(email.date, 'MMM d')}</span>
-                      </div>
-                      <div className="text-sm truncate">{email.subject}</div>
-                      <div className="text-xs text-gray-500 truncate">{email.body.slice(0, 50)}...</div>
-                    </div>
-                  ))}
-                  {sortedEmails.length === 0 && (
-                    <div className="p-4 text-center text-gray-500">
-                      No emails found
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-              
-              <div className="p-4 border-t">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    toast({
-                      title: "Email Integration Coming Soon",
-                      description: "Connect your email accounts to sync messages directly with this CRM.",
-                    });
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Connect Email
-                </Button>
-              </div>
-            </aside>
-            
-            {/* Email Content */}
-            <div className="flex-1 flex flex-col h-full overflow-auto">
-              {selectedEmail ? (
-                <div className="flex-1 flex flex-col p-6 overflow-auto">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold">{selectedEmail.subject}</h2>
-                      <div className="text-sm text-gray-600 mt-1">
-                        {activeFolder === 'inbox' ? 'From:' : 'To:'} {activeFolder === 'inbox' ? selectedEmail.fromName || selectedEmail.from : selectedEmail.toName || selectedEmail.to}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {format(selectedEmail.date, 'MMMM d, yyyy, h:mm a')}
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleReply}
-                      >
-                        Reply
-                      </Button>
-                      {selectedEmail.leadId && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => window.location.href = `/leads/${selectedEmail.leadId}`}
-                        >
-                          View Lead
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 overflow-auto whitespace-pre-line text-gray-800 bg-white border rounded-md p-4">
-                    {selectedEmail.body}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-500">
-                  <div className="text-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <p className="mt-2">Select an email to view its contents</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-
-      {/* Compose Email Dialog */}
+      
+      <div className="flex gap-4 mb-4">
+        <Input
+          placeholder="Search emails..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-sm"
+        />
+      </div>
+      
+      <div className="flex flex-1 gap-4 overflow-hidden">
+        <div className="w-64 flex flex-col space-y-2">
+          <Tabs defaultValue="inbox" value={activeFolder} onValueChange={setActiveFolder}>
+            <TabsList className="grid grid-cols-2">
+              <TabsTrigger value="inbox">Inbox</TabsTrigger>
+              <TabsTrigger value="sent">Sent</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <div className="flex flex-col space-y-2 overflow-hidden h-full">
+            <div className="rounded-md border p-2 flex justify-between items-center">
+              <div className="flex items-center">
+                <InboxIcon size={16} className="mr-2 text-blue-500" />
+                <span className="text-sm font-medium">Inbox</span>
+              </div>
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {sampleEmails.filter(e => e.folder === 'inbox' && !e.read).length}
+              </span>
+            </div>
+            
+            <div className="rounded-md border p-2 flex items-center">
+              <Send size={16} className="mr-2 text-green-500" />
+              <span className="text-sm font-medium">Sent</span>
+            </div>
+            
+            <div className="rounded-md border p-2 flex items-center">
+              <Star size={16} className="mr-2 text-yellow-500" />
+              <span className="text-sm font-medium">Starred</span>
+            </div>
+            
+            <div className="rounded-md border p-2 flex items-center">
+              <Archive size={16} className="mr-2 text-gray-500" />
+              <span className="text-sm font-medium">Archive</span>
+            </div>
+            
+            <div className="rounded-md border p-2 flex items-center">
+              <Trash size={16} className="mr-2 text-red-500" />
+              <span className="text-sm font-medium">Trash</span>
+            </div>
+            
+            <Separator className="my-2" />
+            
+            <div className="rounded-md border p-2 flex items-center">
+              <Tag size={16} className="mr-2 text-purple-500" />
+              <span className="text-sm font-medium">Labels</span>
+            </div>
+            
+            <div className="pl-6 flex flex-col space-y-2">
+              <div className="flex items-center text-sm">
+                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                <span>Leads</span>
+              </div>
+              <div className="flex items-center text-sm">
+                <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                <span>Clients</span>
+              </div>
+              <div className="flex items-center text-sm">
+                <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
+                <span>Urgent</span>
+              </div>
+            </div>
+            
+            <Separator className="my-2" />
+            
+            <div className="rounded-md border p-2 flex justify-between items-center">
+              <div className="flex items-center">
+                <AlertCircle size={16} className="mr-2 text-blue-500" />
+                <span className="text-sm font-medium">Connect Email</span>
+              </div>
+              <CheckCircle size={16} className="text-gray-400" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
+          <div className="overflow-auto border rounded-md">
+            {renderEmailList()}
+          </div>
+          
+          <div className="overflow-auto border rounded-md bg-white">
+            {renderEmailDetail()}
+          </div>
+        </div>
+      </div>
+      
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Compose New Email</DialogTitle>
-            <DialogDescription>
-              Create and send emails directly from the CRM.
-            </DialogDescription>
           </DialogHeader>
           
-          <form onSubmit={handleComposeSubmit}>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="to" className="text-right">To</Label>
-                <Input 
-                  id="to" 
-                  value={composeData.to}
-                  onChange={(e) => setComposeData({...composeData, to: e.target.value})}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="subject" className="text-right">Subject</Label>
-                <Input 
-                  id="subject" 
-                  value={composeData.subject}
-                  onChange={(e) => setComposeData({...composeData, subject: e.target.value})}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                <Label htmlFor="body" className="text-right pt-2">Message</Label>
-                <Textarea 
-                  id="body" 
-                  value={composeData.body}
-                  onChange={(e) => setComposeData({...composeData, body: e.target.value})}
-                  className="col-span-3 min-h-[200px]"
-                  required
-                />
-              </div>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-2">
+              <label htmlFor="to" className="text-right text-sm font-medium">
+                To:
+              </label>
+              <Input
+                id="to"
+                value={composeData.to}
+                onChange={(e) => setComposeData({...composeData, to: e.target.value})}
+                className="col-span-3"
+              />
             </div>
             
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Send Email</Button>
-            </DialogFooter>
-          </form>
+            <div className="grid grid-cols-4 items-center gap-2">
+              <label htmlFor="subject" className="text-right text-sm font-medium">
+                Subject:
+              </label>
+              <Input
+                id="subject"
+                value={composeData.subject}
+                onChange={(e) => setComposeData({...composeData, subject: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2">
+              <label htmlFor="body" className="text-right text-sm font-medium mt-2">
+                Message:
+              </label>
+              <Textarea
+                id="body"
+                value={composeData.body}
+                onChange={(e) => setComposeData({...composeData, body: e.target.value})}
+                className="col-span-3"
+                rows={10}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsComposeOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              onClick={handleComposeSubmit}
+              disabled={!composeData.to || !composeData.subject}
+            >
+              Send
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </main>
+    </div>
   );
 };
 

@@ -1,199 +1,252 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Header from '@/components/layout/header';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Lead, KanbanLane } from '@shared/schema';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
+  Plus, 
+  Phone, 
+  Mail, 
+  MoreVertical, 
+  Filter, 
+  CalendarPlus 
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { Link } from 'wouter';
+
+interface KanbanColumn {
+  id: string;
+  title: string;
+  items: Lead[];
+}
 
 const Clients: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<string | null>(null);
   const [draggingClient, setDraggingClient] = useState<Lead | null>(null);
-
-  // Fetch all leads with isClient status
+  
+  // Fetch clients (leads with isClient = true)
   const { data: clients = [], isLoading } = useQuery<Lead[]>({
     queryKey: ['/api/leads/clients'],
   });
-
-  // Filter clients by search term
-  const filteredClients = clients.filter((client) => 
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.company && client.company.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
+  
+  // Filter clients if needed
+  const filteredClients = filter 
+    ? clients.filter(client => client.source === filter || client.ownerId === Number(filter))
+    : clients;
+  
   // Group clients by kanban lane
-  const clientsByLane = {
-    [KanbanLane.NEW_CLIENT]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.NEW_CLIENT || !client.kanbanLane),
-    [KanbanLane.IN_PROGRESS]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.IN_PROGRESS),
-    [KanbanLane.FOLLOW_UP]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.FOLLOW_UP),
-    [KanbanLane.UPSELL]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.UPSELL),
-    [KanbanLane.COMPLETED]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.COMPLETED),
-    [KanbanLane.RECURRING]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.RECURRING),
-    [KanbanLane.REFERRALS]: filteredClients.filter(client => 
-      client.kanbanLane === KanbanLane.REFERRALS),
-  };
-
-  // Get lane display name by removing underscores and capitalizing
-  const formatLaneName = (lane: string) => {
-    return lane.replace(/_/g, ' ')
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ');
-  };
-
+  const kanbanLanes: KanbanColumn[] = Object.values(KanbanLane).map(lane => ({
+    id: lane,
+    title: lane
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' '),
+    items: filteredClients.filter(client => client.kanbanLane === lane)
+  }));
+  
   // Handle drag start
   const handleDragStart = (client: Lead) => {
     setDraggingClient(client);
   };
-
+  
   // Handle drag over
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
-
-  // Handle drop on a lane
-  const handleDrop = (lane: string) => {
-    if (!draggingClient) return;
-    
-    // TODO: Implement updating client lane in the backend
-    console.log(`Moved client ${draggingClient.id} to lane ${lane}`);
-    setDraggingClient(null);
+  
+  // Handle drop
+  const handleDrop = (e: React.DragEvent, laneId: string) => {
+    e.preventDefault();
+    if (draggingClient) {
+      // Here we would update the client's lane in the backend
+      // For now, we'll just log it
+      console.log(`Moving client ${draggingClient.id} to lane ${laneId}`);
+      setDraggingClient(null);
+    }
   };
-
-  // Render a client card
+  
+  // Client card component
   const ClientCard = ({ client }: { client: Lead }) => (
     <Card 
-      className="mb-3 cursor-move hover:shadow-md transition-shadow"
+      className="mb-3 cursor-pointer" 
       draggable
       onDragStart={() => handleDragStart(client)}
     >
       <CardContent className="p-4">
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start mb-2">
           <div>
-            <h3 className="font-semibold">{client.name}</h3>
-            {client.company && <p className="text-sm text-gray-500">{client.company}</p>}
+            <h3 className="font-medium">{client.name}</h3>
+            {client.company && (
+              <p className="text-sm text-gray-500">{client.company}</p>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                </svg>
+                <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => window.location.href = `/leads/${client.id}`}>
-                View Details
+              <DropdownMenuItem>
+                <Link href={`/leads/${client.id}`}>View Details</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.location.href = `/leads/${client.id}/edit`}>
-                Edit Client
+              <DropdownMenuItem>
+                <Link href={`/leads/${client.id}/edit`}>Edit Client</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.location.href = `/calendar/new?leadId=${client.id}`}>
+              <DropdownMenuItem>
+                <CalendarPlus className="h-4 w-4 mr-2" />
                 Schedule Appointment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.location.href = `/payments/new?leadId=${client.id}`}>
-                Process Payment
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
-        <div className="mt-2 text-sm text-gray-600">
-          {client.nextActivity && (
-            <div className="mt-2">
-              <span className="font-medium">Next:</span> {client.nextActivity}
-              {client.nextActivityDate && (
-                <span className="text-xs text-gray-500 ml-1">
-                  ({format(new Date(client.nextActivityDate), 'MMM d')})
-                </span>
-              )}
+        
+        {/* Contact information */}
+        <div className="my-2 space-y-1">
+          {client.phone && (
+            <div className="flex items-center text-xs text-gray-600">
+              <Phone className="h-3 w-3 mr-1" />
+              {client.phone}
             </div>
           )}
-          
-          {client.value && (
-            <div className="mt-1">
-              <span className="font-medium">Value:</span> ${client.value.toLocaleString()}
-            </div>
-          )}
-          
           {client.email && (
-            <div className="mt-1 truncate">
-              <span className="font-medium">Email:</span> {client.email}
+            <div className="flex items-center text-xs text-gray-600">
+              <Mail className="h-3 w-3 mr-1" />
+              {client.email}
             </div>
           )}
         </div>
+        
+        {/* Labels */}
+        {client.labels && Array.isArray(client.labels) && client.labels.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {client.labels.slice(0, 2).map((label, idx) => (
+              <Badge key={idx} variant="outline" className="text-xs">
+                {label}
+              </Badge>
+            ))}
+            {client.labels.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{client.labels.length - 2}
+              </Badge>
+            )}
+          </div>
+        )}
+        
+        {/* Next activity */}
+        {client.nextActivity && (
+          <div className="mt-2 text-xs">
+            <span className="font-medium">Next:</span> {client.nextActivity}
+            {client.nextActivityDate && (
+              <span className="text-gray-500"> ({format(new Date(client.nextActivityDate), 'MMM d')})</span>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-
+  
+  // Get unique sources for filtering
+  const sources = Array.from(new Set(clients.map(client => client.source).filter(Boolean)));
+  
+  // Get unique owners for filtering
+  const owners = Array.from(new Set(clients.map(client => client.ownerId).filter(Boolean)));
+  
   return (
-    <main className="flex-1 flex flex-col overflow-hidden">
-      <Header 
-        title="Clients" 
-        description="Manage your clients with this Kanban board"
-      />
-
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
-        <div className="mb-6 flex justify-between items-center">
-          <Input
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-xs"
-          />
-          <Button asChild>
-            <a href="/leads?filter=clients">
-              <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              View All Clients
-            </a>
-          </Button>
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Clients</h1>
+        
+        <div className="flex items-center gap-2">
+          {/* Filter dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <Filter className="h-4 w-4 mr-2" />
+                {filter ? 'Filtered' : 'Filter'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setFilter(null)}>
+                All Clients
+              </DropdownMenuItem>
+              
+              {sources.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs font-semibold">By Source</div>
+                  {sources.map(source => (
+                    <DropdownMenuItem key={source} onClick={() => setFilter(source as string)}>
+                      {source}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+              
+              {owners.length > 0 && (
+                <>
+                  <div className="px-2 py-1 text-xs font-semibold">By Owner</div>
+                  {owners.map(owner => (
+                    <DropdownMenuItem key={owner} onClick={() => setFilter(owner?.toString())}>
+                      Owner {owner}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Add new client button */}
+          <Link href="/leads/new">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Client
+            </Button>
+          </Link>
         </div>
-
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr h-full overflow-x-auto">
-            {Object.entries(clientsByLane).map(([lane, laneClients]) => (
-              <div 
-                key={lane}
-                className="bg-white rounded-lg shadow-sm overflow-hidden flex flex-col"
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(lane)}
-              >
-                <div className="p-4 bg-gray-50 border-b">
-                  <h2 className="font-semibold text-gray-700">{formatLaneName(lane)}</h2>
-                  <div className="text-sm text-gray-500 mt-1">{laneClients.length} clients</div>
-                </div>
-                <div className="p-3 flex-1 overflow-y-auto bg-gray-50 min-h-[300px]">
-                  {laneClients.length > 0 ? (
-                    laneClients.map(client => (
-                      <ClientCard key={client.id} client={client} />
-                    ))
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-sm text-gray-500 italic">
-                      No clients in this lane
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
-    </main>
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+          {/* Kanban lanes */}
+          {kanbanLanes.map(lane => (
+            <div 
+              key={lane.id} 
+              className="bg-gray-50 rounded-lg p-3"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, lane.id)}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="font-semibold text-gray-700">{lane.title}</h3>
+                <Badge variant="secondary" className="text-xs">
+                  {lane.items.length}
+                </Badge>
+              </div>
+              
+              {lane.items.map(client => (
+                <ClientCard key={client.id} client={client} />
+              ))}
+              
+              {lane.items.length === 0 && (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  No clients in this lane
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 
