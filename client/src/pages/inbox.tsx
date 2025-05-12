@@ -95,6 +95,49 @@ const Inbox: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Check for status in URL (after redirecting back from OAuth)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const status = url.searchParams.get('status');
+    const accountId = url.searchParams.get('accountId');
+    
+    if (status) {
+      // Remove the parameters
+      url.searchParams.delete('status');
+      url.searchParams.delete('accountId');
+      window.history.replaceState({}, document.title, url.toString());
+      
+      if (status === 'success') {
+        toast({
+          title: 'Email Account Connected',
+          description: 'Your email account has been connected successfully.',
+          variant: 'default'
+        });
+        
+        // If accountId is provided, select it
+        if (accountId) {
+          setSelectedAccountId(parseInt(accountId));
+        }
+        
+        // Refresh email accounts and messages
+        queryClient.invalidateQueries({ queryKey: ['/api/email/accounts'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
+      } else if (status === 'error') {
+        toast({
+          title: 'Connection Failed',
+          description: 'There was an error connecting your email account. Please try again.',
+          variant: 'destructive'
+        });
+      } else if (status === 'account_exists') {
+        toast({
+          title: 'Account Already Connected',
+          description: 'This email account is already connected to your profile.',
+          variant: 'default'
+        });
+      }
+    }
+  }, []);
+  
   // Fetch email accounts
   const { data: emailAccounts = [], isLoading: isLoadingAccounts } = useQuery({
     queryKey: ['/api/email/accounts'],
@@ -133,7 +176,18 @@ const Inbox: React.FC = () => {
       const res = await apiRequest('POST', '/api/email/accounts', accountData);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Check if OAuth redirect is needed
+      if (data.redirectUrl) {
+        // For Gmail and other OAuth providers, redirect to auth URL
+        toast({
+          title: 'Authentication Required',
+          description: 'You will be redirected to sign in with your provider.',
+        });
+        window.location.href = data.redirectUrl;
+        return;
+      }
+
       queryClient.invalidateQueries({ queryKey: ['/api/email/accounts'] });
       setIsAddEmailAccountOpen(false);
       setAddEmailData({ provider: 'gmail', email: '' });
@@ -506,23 +560,42 @@ const Inbox: React.FC = () => {
                 <option value="other">Other</option>
               </select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="email" className="text-right text-sm">
-                Email
-              </label>
-              <Input
-                id="email"
-                className="col-span-3"
-                placeholder="youremail@example.com"
-                value={addEmailData.email}
-                onChange={(e) => setAddEmailData({ ...addEmailData, email: e.target.value })}
-              />
-            </div>
+            
+            {addEmailData.provider === 'gmail' ? (
+              <div className="col-span-4 p-4 bg-gray-50 rounded-md">
+                <p className="text-sm mb-2">
+                  <Mail className="inline-block mr-2 h-4 w-4 text-gray-500" />
+                  You'll be redirected to Google to authorize access to your Gmail account
+                </p>
+                <p className="text-xs text-gray-500">
+                  This app requires limited access to read and send emails on your behalf. You can revoke access at any time.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="email" className="text-right text-sm">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  className="col-span-3"
+                  placeholder="youremail@example.com"
+                  value={addEmailData.email}
+                  onChange={(e) => setAddEmailData({ ...addEmailData, email: e.target.value })}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button 
-              onClick={() => addEmailAccountMutation.mutate(addEmailData)}
-              disabled={!addEmailData.email || addEmailAccountMutation.isPending}
+              onClick={() => addEmailAccountMutation.mutate({
+                provider: addEmailData.provider,
+                email: addEmailData.provider === 'gmail' ? '' : addEmailData.email
+              })}
+              disabled={
+                (addEmailData.provider !== 'gmail' && !addEmailData.email) || 
+                addEmailAccountMutation.isPending
+              }
             >
               {addEmailAccountMutation.isPending ? (
                 <>
