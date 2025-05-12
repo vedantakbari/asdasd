@@ -541,7 +541,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none_lead">None</SelectItem>
                     {leads.map((lead: any) => (
                       <SelectItem key={lead.id} value={lead.id.toString()}>
                         {lead.name}
@@ -570,7 +570,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none_deal">None</SelectItem>
                     {deals.map((deal: any) => (
                       <SelectItem key={deal.id} value={deal.id.toString()}>
                         {deal.title}
