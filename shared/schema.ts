@@ -1,0 +1,225 @@
+import { pgTable, text, serial, integer, boolean, timestamp, json, doublePrecision, varchar } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// User schema
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  avatar: text("avatar"),
+  role: text("role").default("user").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUserSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+  fullName: true,
+  email: true,
+  avatar: true,
+  role: true,
+});
+
+// Lead status enum
+export const LeadStatus = {
+  NEW: "new",
+  CONTACTED: "contacted",
+  QUALIFIED: "qualified",
+  PROPOSAL: "proposal",
+  WON: "won",
+  LOST: "lost",
+} as const;
+
+// Lead schema
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  company: text("company"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  source: text("source"),
+  status: text("status").default(LeadStatus.NEW).notNull(),
+  value: doublePrecision("value"),
+  notes: text("notes"),
+  ownerId: integer("owner_id"),
+  nextActivity: text("next_activity"),
+  nextActivityDate: timestamp("next_activity_date"),
+  customFields: json("custom_fields"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertLeadSchema = createInsertSchema(leads).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Deal stage enum
+export const DealStage = {
+  PLANNING: "planning",
+  IN_PROGRESS: "in_progress",
+  INSTALLATION: "installation",
+  REVIEW: "review",
+  COMPLETED: "completed",
+} as const;
+
+// Deal schema
+export const deals = pgTable("deals", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  value: doublePrecision("value").notNull(),
+  stage: text("stage").default(DealStage.PLANNING).notNull(),
+  customerId: integer("customer_id").notNull(),
+  description: text("description"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertDealSchema = createInsertSchema(deals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Customer schema
+export const customers = pgTable("customers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  company: text("company"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertCustomerSchema = createInsertSchema(customers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Task priority enum
+export const TaskPriority = {
+  LOW: "low",
+  MEDIUM: "medium",
+  HIGH: "high",
+} as const;
+
+// Task status enum
+export const TaskStatus = {
+  TODO: "todo",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+} as const;
+
+// Task schema
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").default(TaskPriority.MEDIUM).notNull(),
+  status: text("status").default(TaskStatus.TODO).notNull(),
+  dueDate: timestamp("due_date"),
+  assigneeId: integer("assignee_id"),
+  relatedLeadId: integer("related_lead_id"),
+  relatedDealId: integer("related_deal_id"),
+  relatedCustomerId: integer("related_customer_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Appointment schema
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  location: text("location"),
+  description: text("description"),
+  customerId: integer("customer_id"),
+  leadId: integer("lead_id"),
+  dealId: integer("deal_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Payment schema
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  amount: doublePrecision("amount").notNull(),
+  method: text("method").notNull(),
+  status: text("status").notNull(),
+  dealId: integer("deal_id"),
+  customerId: integer("customer_id").notNull(),
+  description: text("description"),
+  receiptUrl: text("receipt_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPaymentSchema = createInsertSchema(payments).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Activity schema for tracking user actions
+export const activities = pgTable("activities", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  activityType: text("activity_type").notNull(),
+  description: text("description").notNull(),
+  relatedLeadId: integer("related_lead_id"),
+  relatedDealId: integer("related_deal_id"),
+  relatedCustomerId: integer("related_customer_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Type definitions
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Lead = typeof leads.$inferSelect;
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+
+export type Deal = typeof deals.$inferSelect;
+export type InsertDeal = z.infer<typeof insertDealSchema>;
+
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+
+export type Activity = typeof activities.$inferSelect;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
