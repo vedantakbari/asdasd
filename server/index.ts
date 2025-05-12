@@ -6,11 +6,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check route with fallback to static file in production
-app.get("/", (_req, res) => {
-  if (app.get("env") === "production") {
-    return res.sendFile("index.html", { root: "./dist/public" });
-  }
+// Add health check route but only respond when requesting /api/health
+app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
 
