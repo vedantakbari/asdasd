@@ -119,6 +119,7 @@ export class MemStorage implements IStorage {
     this.payments = new Map();
     this.activities = new Map();
     this.googleCalendarSettings = new Map();
+    this.emailAccounts = new Map();
     
     this.userId = 1;
     this.leadId = 1;
@@ -129,6 +130,7 @@ export class MemStorage implements IStorage {
     this.paymentId = 1;
     this.activityId = 1;
     this.googleCalendarSettingsId = 1;
+    this.emailAccountId = 1;
     
     // Add some sample data for testing
     this.seedSampleData();
@@ -512,6 +514,82 @@ export class MemStorage implements IStorage {
     }
     
     return undefined;
+  }
+  
+  // Email Account Methods
+  async getEmailAccounts(userId: number): Promise<EmailAccount[]> {
+    const accounts: EmailAccount[] = [];
+    
+    for (const account of this.emailAccounts.values()) {
+      if (account.userId === userId) {
+        accounts.push(account);
+      }
+    }
+    
+    return accounts;
+  }
+  
+  async getEmailAccount(id: number): Promise<EmailAccount | undefined> {
+    return this.emailAccounts.get(id);
+  }
+  
+  async createEmailAccount(accountData: InsertEmailAccount): Promise<EmailAccount> {
+    const id = this.emailAccountId++;
+    
+    const account: EmailAccount = {
+      id,
+      ...accountData,
+      connected: accountData.connected ?? false,
+      lastSynced: accountData.lastSynced || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    this.emailAccounts.set(id, account);
+    
+    // Create an activity for the account connection
+    await this.createActivity({
+      userId: accountData.userId,
+      activityType: "email_account_added",
+      description: `Email account ${accountData.email} (${accountData.provider}) was connected`,
+    });
+    
+    return account;
+  }
+  
+  async updateEmailAccount(id: number, accountData: Partial<InsertEmailAccount>): Promise<EmailAccount | undefined> {
+    const account = await this.getEmailAccount(id);
+    
+    if (!account) {
+      return undefined;
+    }
+    
+    const updatedAccount = {
+      ...account,
+      ...accountData,
+      updatedAt: new Date(),
+    };
+    
+    this.emailAccounts.set(id, updatedAccount);
+    
+    return updatedAccount;
+  }
+  
+  async deleteEmailAccount(id: number): Promise<boolean> {
+    const account = await this.getEmailAccount(id);
+    
+    if (!account) {
+      return false;
+    }
+    
+    // Create an activity for the account removal
+    await this.createActivity({
+      userId: account.userId,
+      activityType: "email_account_removed",
+      description: `Email account ${account.email} (${account.provider}) was disconnected`,
+    });
+    
+    return this.emailAccounts.delete(id);
   }
 
   // Helper method to seed sample data for testing
