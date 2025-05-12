@@ -132,7 +132,7 @@ const Tasks: React.FC = () => {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all_statuses">All Statuses</SelectItem>
                 <SelectItem value={TaskStatus.TODO}>To Do</SelectItem>
                 <SelectItem value={TaskStatus.IN_PROGRESS}>In Progress</SelectItem>
                 <SelectItem value={TaskStatus.COMPLETED}>Completed</SelectItem>
@@ -147,7 +147,7 @@ const Tasks: React.FC = () => {
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Priorities</SelectItem>
+                <SelectItem value="all_priorities">All Priorities</SelectItem>
                 <SelectItem value={TaskPriority.HIGH}>High</SelectItem>
                 <SelectItem value={TaskPriority.MEDIUM}>Medium</SelectItem>
                 <SelectItem value={TaskPriority.LOW}>Low</SelectItem>
@@ -162,7 +162,7 @@ const Tasks: React.FC = () => {
                 <SelectValue placeholder="Action Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Action Types</SelectItem>
+                <SelectItem value="all_action_types">All Action Types</SelectItem>
                 
                 <SelectItem value={TaskActionType.FOLLOW_UP_EMAIL}>
                   <div className="flex items-center">
