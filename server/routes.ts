@@ -10,6 +10,7 @@ import {
   insertAppointmentSchema,
   insertPaymentSchema,
   insertActivitySchema,
+  LeadStatus,
 } from "@shared/schema";
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
 

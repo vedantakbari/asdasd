@@ -10,6 +10,7 @@ import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
 import Clients from "@/pages/clients"; // Renamed from Deals
 import CalendarPage from "@/pages/calendar";
+import BookingPage from "@/pages/booking"; // Public booking page
 import Tasks from "@/pages/tasks";
 import Inbox from "@/pages/inbox"; // New Inbox page
 import Payments from "@/pages/payments";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/leads" component={Leads} />
       <Route path="/clients" component={Clients} />
       <Route path="/calendar" component={CalendarPage} />
+      <Route path="/booking/:userId" component={BookingPage} />
       <Route path="/tasks" component={Tasks} />
       <Route path="/inbox" component={Inbox} />
       <Route path="/payments" component={Payments} />
