@@ -87,6 +87,7 @@ export class MemStorage implements IStorage {
   private appointments: Map<number, Appointment>;
   private payments: Map<number, Payment>;
   private activities: Map<number, Activity>;
+  private googleCalendarSettings: Map<number, GoogleCalendarSettings>;
   
   private userId: number;
   private leadId: number;
@@ -96,6 +97,7 @@ export class MemStorage implements IStorage {
   private appointmentId: number;
   private paymentId: number;
   private activityId: number;
+  private googleCalendarSettingsId: number;
 
   constructor() {
     this.users = new Map();
@@ -106,6 +108,7 @@ export class MemStorage implements IStorage {
     this.appointments = new Map();
     this.payments = new Map();
     this.activities = new Map();
+    this.googleCalendarSettings = new Map();
     
     this.userId = 1;
     this.leadId = 1;
@@ -115,6 +118,7 @@ export class MemStorage implements IStorage {
     this.appointmentId = 1;
     this.paymentId = 1;
     this.activityId = 1;
+    this.googleCalendarSettingsId = 1;
     
     // Add some sample data for testing
     this.seedSampleData();
@@ -440,6 +444,64 @@ export class MemStorage implements IStorage {
     return Array.from(this.activities.values())
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit);
+  }
+  
+  // Google Calendar Integration Methods
+  async getGoogleCalendarSettings(userId: number): Promise<GoogleCalendarSettings | undefined> {
+    for (const settings of this.googleCalendarSettings.values()) {
+      if (settings.userId === userId) {
+        return settings;
+      }
+    }
+    return undefined;
+  }
+
+  async createGoogleCalendarSettings(settings: InsertGoogleCalendarSettings): Promise<GoogleCalendarSettings> {
+    const id = this.googleCalendarSettingsId++;
+    const now = new Date();
+    
+    const newSettings: GoogleCalendarSettings = {
+      id,
+      ...settings,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.googleCalendarSettings.set(id, newSettings);
+    
+    // Create activity for the new settings
+    await this.createActivity({
+      userId: settings.userId,
+      activityType: "google_calendar_connected",
+      description: "Connected Google Calendar",
+    });
+    
+    return newSettings;
+  }
+  
+  async updateGoogleCalendarSettings(userId: number, updatedSettings: Partial<InsertGoogleCalendarSettings>): Promise<GoogleCalendarSettings | undefined> {
+    const settings = await this.getGoogleCalendarSettings(userId);
+    
+    if (settings) {
+      const updated = { 
+        ...settings, 
+        ...updatedSettings,
+        updatedAt: new Date()
+      };
+      
+      this.googleCalendarSettings.set(settings.id, updated);
+      
+      // Create activity for updated settings
+      await this.createActivity({
+        userId: userId,
+        activityType: "google_calendar_updated",
+        description: "Updated Google Calendar settings",
+      });
+      
+      return updated;
+    }
+    
+    return undefined;
   }
 
   // Helper method to seed sample data for testing
