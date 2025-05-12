@@ -8,10 +8,10 @@ import Sidebar from "@/components/ui/sidebar";
 import MobileSidebar from "@/components/ui/mobile-sidebar";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
-import Deals from "@/pages/deals";
-import Customers from "@/pages/customers";
+import Clients from "@/pages/clients"; // Renamed from Deals
 import CalendarPage from "@/pages/calendar";
 import Tasks from "@/pages/tasks";
+import Inbox from "@/pages/inbox"; // New Inbox page
 import Payments from "@/pages/payments";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
@@ -22,10 +22,10 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/leads" component={Leads} />
-      <Route path="/deals" component={Deals} />
-      <Route path="/customers" component={Customers} />
+      <Route path="/clients" component={Clients} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/tasks" component={Tasks} />
+      <Route path="/inbox" component={Inbox} />
       <Route path="/payments" component={Payments} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />

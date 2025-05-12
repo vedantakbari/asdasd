@@ -31,6 +31,7 @@ export const LeadStatus = {
   PROPOSAL: "proposal",
   WON: "won",
   LOST: "lost",
+  CLIENT: "client", // New status for leads converted to clients
 } as const;
 
 // Lead schema
@@ -48,6 +49,10 @@ export const leads = pgTable("leads", {
   ownerId: integer("owner_id"),
   nextActivity: text("next_activity"),
   nextActivityDate: timestamp("next_activity_date"),
+  contactPerson: text("contact_person"),
+  labels: json("labels").default([]), // Array of labels for the lead
+  isClient: boolean("is_client").default(false), // Flag to mark if converted to client
+  kanbanLane: text("kanban_lane"), // Kanban lane for client view
   customFields: json("custom_fields"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -59,7 +64,18 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   updatedAt: true,
 });
 
-// Deal stage enum
+// Client Kanban Lane enum
+export const KanbanLane = {
+  NEW_CLIENT: "new_client",
+  IN_PROGRESS: "in_progress",
+  FOLLOW_UP: "follow_up",
+  UPSELL: "upsell",
+  COMPLETED: "completed",
+  RECURRING: "recurring",
+  REFERRALS: "referrals",
+} as const;
+
+// Deal stage enum - keeping for backward compatibility
 export const DealStage = {
   PLANNING: "planning",
   IN_PROGRESS: "in_progress",
