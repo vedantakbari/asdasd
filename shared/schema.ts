@@ -216,6 +216,29 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
   createdAt: true,
 });
 
+// Google Calendar Integration settings
+export const googleCalendarSettings = pgTable("google_calendar_settings", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  redirectUri: text("redirect_uri"),
+  refreshToken: text("refresh_token"),
+  accessToken: text("access_token"),
+  tokenExpiry: timestamp("token_expiry"),
+  connected: boolean("connected").default(false),
+  primaryCalendarId: text("primary_calendar_id"),
+  syncEnabled: boolean("sync_enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertGoogleCalendarSettingsSchema = createInsertSchema(googleCalendarSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -240,3 +263,6 @@ export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+
+export type GoogleCalendarSettings = typeof googleCalendarSettings.$inferSelect;
+export type InsertGoogleCalendarSettings = z.infer<typeof insertGoogleCalendarSettingsSchema>;

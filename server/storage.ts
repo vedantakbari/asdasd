@@ -7,6 +7,7 @@ import {
   appointments, type Appointment, type InsertAppointment,
   payments, type Payment, type InsertPayment,
   activities, type Activity, type InsertActivity,
+  googleCalendarSettings, type GoogleCalendarSettings, type InsertGoogleCalendarSettings,
   LeadStatus, DealStage, TaskPriority, TaskStatus
 } from "@shared/schema";
 
@@ -15,6 +16,11 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Google Calendar Integration
+  getGoogleCalendarSettings(userId: number): Promise<GoogleCalendarSettings | undefined>;
+  createGoogleCalendarSettings(settings: InsertGoogleCalendarSettings): Promise<GoogleCalendarSettings>;
+  updateGoogleCalendarSettings(userId: number, settings: Partial<InsertGoogleCalendarSettings>): Promise<GoogleCalendarSettings | undefined>;
   
   // Leads
   getLeads(): Promise<Lead[]>;
