@@ -7,6 +7,156 @@ import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Separate component for Lead Details
+const LeadDetail = ({ id }: { id: string }) => {
+  // Fetch lead data
+  const { data: lead, isLoading } = useQuery({
+    queryKey: [`/api/leads/${id}`],
+  });
+  
+  return (
+    <>
+      <Header 
+        title={isLoading ? "Lead Details" : `${lead?.name}`}
+        description={lead?.company}
+        actions={
+          <Button 
+            variant="outline" 
+            asChild
+          >
+            <Link href={`/leads/${id}/edit`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit Lead
+            </Link>
+          </Button>
+        }
+      />
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Lead Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Name</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.name}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Company</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.company || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Email</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.email || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Phone</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.phone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Address</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.address || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Source</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.source || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                    <p className="mt-1">
+                      <span className={`status-pill status-${lead?.status}`}>
+                        {lead?.status}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Value</h3>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {lead?.value ? `$${lead.value.toLocaleString()}` : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-gray-500">Notes</h3>
+                  <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">
+                    {lead?.notes || 'No notes available'}
+                  </p>
+                </div>
+                
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Next Activity</h3>
+                    <p className="mt-1 text-sm text-gray-900">{lead?.nextActivity || 'No next activity scheduled'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Next Activity Date</h3>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {lead?.nextActivityDate 
+                        ? new Date(lead.nextActivityDate).toLocaleString() 
+                        : 'No date set'}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <div className="flex space-x-4">
+              <Button 
+                variant="default" 
+                asChild
+              >
+                <Link href={`/deals/new?leadId=${id}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Convert to Deal
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+// Separate component for Lead Edit
+const LeadEdit = ({ id }: { id: string }) => {
+  // Fetch lead data for editing
+  const { data: lead, isLoading } = useQuery({
+    queryKey: [`/api/leads/${id}`],
+  });
+  
+  return (
+    <>
+      <Header 
+        title="Edit Lead" 
+        description={isLoading ? "Loading..." : `Editing ${lead?.name}`}
+      />
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
+          </div>
+        ) : (
+          <LeadForm lead={lead} isEdit={true} />
+        )}
+      </div>
+    </>
+  );
+};
+
+// Main Leads component
 const Leads: React.FC = () => {
   const [location] = useLocation();
   
@@ -35,155 +185,12 @@ const Leads: React.FC = () => {
           }}
         </Route>
         
-        <Route path="/leads/:id">
-          {(params) => {
-            // Fetch lead data
-            const { data: lead, isLoading } = useQuery({
-              queryKey: [`/api/leads/${params.id}`],
-            });
-            
-            return (
-              <>
-                <Header 
-                  title={isLoading ? "Lead Details" : `${lead?.name}`}
-                  description={lead?.company}
-                  actions={
-                    <Button 
-                      variant="outline" 
-                      asChild
-                    >
-                      <Link href={`/leads/${params.id}/edit`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit Lead
-                      </Link>
-                    </Button>
-                  }
-                />
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
-                  {isLoading ? (
-                    <div className="flex justify-center items-center h-full">
-                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Lead Information</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Name</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.name}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Company</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.company || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Email</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.email || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Phone</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.phone || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Address</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.address || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Source</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.source || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                              <p className="mt-1">
-                                <span className={`status-pill status-${lead?.status}`}>
-                                  {lead?.status}
-                                </span>
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Value</h3>
-                              <p className="mt-1 text-sm text-gray-900">
-                                {lead?.value ? `$${lead.value.toLocaleString()}` : 'N/A'}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-6">
-                            <h3 className="text-sm font-medium text-gray-500">Notes</h3>
-                            <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">
-                              {lead?.notes || 'No notes available'}
-                            </p>
-                          </div>
-                          
-                          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Next Activity</h3>
-                              <p className="mt-1 text-sm text-gray-900">{lead?.nextActivity || 'No next activity scheduled'}</p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500">Next Activity Date</h3>
-                              <p className="mt-1 text-sm text-gray-900">
-                                {lead?.nextActivityDate 
-                                  ? new Date(lead.nextActivityDate).toLocaleString() 
-                                  : 'No date set'}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      <div className="flex space-x-4">
-                        <Button 
-                          variant="default" 
-                          asChild
-                        >
-                          <Link href={`/deals/new?leadId=${params.id}`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          Convert to Deal
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            );
-          }}
+        <Route path="/leads/:id/edit">
+          {(params) => <LeadEdit id={params.id} />}
         </Route>
         
-        <Route path="/leads/:id/edit">
-          {(params) => {
-            // Fetch lead data for editing
-            const { data: lead, isLoading } = useQuery({
-              queryKey: [`/api/leads/${params.id}`],
-            });
-            
-            return (
-              <>
-                <Header 
-                  title="Edit Lead" 
-                  description={isLoading ? "Loading..." : `Editing ${lead?.name}`}
-                />
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
-                  {isLoading ? (
-                    <div className="flex justify-center items-center h-full">
-                      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
-                    </div>
-                  ) : (
-                    <LeadForm lead={lead} isEdit={true} />
-                  )}
-                </div>
-              </>
-            );
-          }}
+        <Route path="/leads/:id">
+          {(params) => <LeadDetail id={params.id} />}
         </Route>
         
         <Route path="/leads">
