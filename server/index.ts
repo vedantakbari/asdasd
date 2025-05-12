@@ -6,10 +6,10 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check route that redirects to /dashboard in production
+// Add health check route with fallback to static file in production
 app.get("/", (_req, res) => {
   if (app.get("env") === "production") {
-    return res.redirect("/dashboard");
+    return res.sendFile("index.html", { root: "./public" });
   }
   res.status(200).send("OK");
 });
@@ -67,7 +67,37 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    try {
+      serveStatic(app);
+    } catch (e) {
+      console.error("Error setting up static file serving:", e);
+      
+      // Add fallback middleware if serveStatic fails
+      app.use(express.static("./public"));
+      
+      // Add fallback catch-all route to serve index.html for all non-API routes
+      app.use("*", (req, res, next) => {
+        if (req.originalUrl.startsWith("/api")) {
+          return next();
+        }
+        
+        try {
+          res.sendFile("index.html", { root: "./public" });
+        } catch (err) {
+          console.error("Error serving fallback index.html:", err);
+          res.status(200).send(`
+            <html>
+              <head><title>Home Services CRM</title></head>
+              <body>
+                <h1>Home Services CRM</h1>
+                <p>Application is running. Please try accessing a specific route like 
+                <a href="/dashboard">/dashboard</a></p>
+              </body>
+            </html>
+          `);
+        }
+      });
+    }
   }
 
   // ALWAYS serve the app on port 5000
