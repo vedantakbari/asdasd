@@ -99,18 +99,44 @@ const EmailSync: React.FC = () => {
   // Save Google credentials
   const saveGoogleCredentials = async () => {
     try {
+      // Validate credentials before saving
+      if (!googleCredentials.clientId.trim()) {
+        toast({
+          title: "Error",
+          description: "Client ID is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!googleCredentials.clientSecret.trim()) {
+        toast({
+          title: "Error",
+          description: "Client Secret is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Generate the redirect URI based on current location
+      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+      
       const response = await fetch('/api/settings/google-credentials', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(googleCredentials),
+        body: JSON.stringify({
+          ...googleCredentials,
+          redirectUri
+        }),
       });
       
       if (response.ok) {
+        const data = await response.json();
         toast({
           title: "Success",
-          description: "Google API credentials saved successfully",
+          description: data.message || "Google API credentials saved successfully",
         });
         
         // Refresh credentials status
@@ -120,9 +146,10 @@ const EmailSync: React.FC = () => {
           setCredentialsStatus(data);
         }
       } else {
+        const errorData = await response.json();
         toast({
           title: "Error",
-          description: "Failed to save Google API credentials",
+          description: errorData.message || "Failed to save Google API credentials",
           variant: "destructive",
         });
       }
@@ -136,29 +163,68 @@ const EmailSync: React.FC = () => {
     }
   };
   
+  // State for new email account
+  const [newEmail, setNewEmail] = useState("");
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  
   // Connect Gmail account
   const connectGmailAccount = async () => {
     setIsConnectingEmail(true);
     try {
+      // Validate the email if we're showing the input
+      if (showEmailInput && !newEmail.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter your email address",
+          variant: "destructive",
+        });
+        setIsConnectingEmail(false);
+        return;
+      }
+      
+      // Ensure Google credentials are configured
+      if (!credentialsStatus.isConfigured) {
+        toast({
+          title: "Error",
+          description: "Please configure Google API credentials first",
+          variant: "destructive",
+        });
+        setIsConnectingEmail(false);
+        return;
+      }
+      
       const response = await fetch('/api/email/accounts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ provider: 'gmail' }),
+        body: JSON.stringify({ 
+          provider: 'gmail',
+          email: newEmail.trim() 
+        }),
       });
       
       if (response.ok) {
         const data = await response.json();
         if (data.redirectUrl) {
+          // Save the request and redirect
           window.location.href = data.redirectUrl;
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to get OAuth redirect URL",
+            variant: "destructive",
+          });
+          setIsConnectingEmail(false);
         }
       } else {
+        const errorData = await response.json();
         toast({
           title: "Error",
-          description: "Failed to connect Gmail account",
+          description: errorData.message || "Failed to connect Gmail account",
           variant: "destructive",
         });
+        setIsConnectingEmail(false);
       }
     } catch (error) {
       console.error('Error connecting Gmail account:', error);
@@ -167,7 +233,6 @@ const EmailSync: React.FC = () => {
         description: "Failed to connect Gmail account",
         variant: "destructive",
       });
-    } finally {
       setIsConnectingEmail(false);
     }
   };
