@@ -101,10 +101,15 @@ const Inbox: React.FC = () => {
     queryKey: ['/api/google/credentials-status'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/google/credentials-status');
-      return res.json();
+      const data = await res.json();
+      console.log('Google credentials status:', data);
+      return data;
     },
     // Refresh more frequently to catch credential updates
-    refetchInterval: 10000
+    refetchInterval: 5000,
+    // Always refetch when component mounts or window gets focus
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
   
   // Check for status in URL (after redirecting back from OAuth)
@@ -876,12 +881,64 @@ const Inbox: React.FC = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:gap-0">
             <Button 
-              onClick={() => addEmailAccountMutation.mutate({
-                provider: addEmailData.provider,
-                email: addEmailData.provider === 'gmail' ? '' : addEmailData.email
-              })}
+              variant="outline"
+              onClick={async () => {
+                // Force refresh credentials status
+                toast({
+                  title: "Checking Google API credentials...",
+                  description: "Refreshing credentials status..."
+                });
+                
+                const result = await refetchCredentialsStatus();
+                const status = result.data;
+                
+                if (status && status.isConfigured) {
+                  toast({
+                    title: "Google API Credentials Ready",
+                    description: "Your Google API credentials are properly configured. You can connect Gmail now.",
+                  });
+                } else {
+                  toast({
+                    title: "Missing Google API Credentials",
+                    description: "Please configure your Google API credentials in Settings first.",
+                    variant: "destructive"
+                  });
+                  
+                  // Ask to go to settings
+                  setTimeout(() => {
+                    if (confirm("Would you like to go to the Settings page to configure your Google API credentials?")) {
+                      window.location.href = "/settings";
+                    }
+                  }, 500);
+                }
+              }}
+            >
+              Check Credentials Status
+            </Button>
+            
+            <Button 
+              onClick={async () => {
+                // Before connecting, check if credentials are configured
+                const result = await refetchCredentialsStatus();
+                const status = result.data;
+                
+                if (!status || !status.isConfigured) {
+                  toast({
+                    title: "Google API Credentials Required",
+                    description: "Gmail integration requires Google API credentials. Please configure them in Settings first.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                
+                // Proceed with connecting the account
+                addEmailAccountMutation.mutate({
+                  provider: addEmailData.provider,
+                  email: addEmailData.provider === 'gmail' ? '' : addEmailData.email
+                });
+              }}
               disabled={
                 (addEmailData.provider !== 'gmail' && !addEmailData.email) || 
                 addEmailAccountMutation.isPending
