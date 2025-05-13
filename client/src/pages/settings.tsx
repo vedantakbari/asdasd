@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,37 @@ const Settings: React.FC = () => {
     message: "",
     actions: []
   });
+  
+  // State for essential redirect URIs
+  const [essentialURIs, setEssentialURIs] = useState<string[]>([]);
+  
+  // Load essential URIs when the component mounts
+  useEffect(() => {
+    const loadEssentialURIs = async () => {
+      try {
+        const response = await fetch('/api/auth/google/config');
+        if (response.ok) {
+          const data = await response.json();
+          setEssentialURIs(data.essentialRedirectURIs || []);
+          
+          // Update the URIs list in the DOM
+          const urisList = document.getElementById('essentialUrisList');
+          if (urisList && data.essentialRedirectURIs && data.essentialRedirectURIs.length > 0) {
+            urisList.innerHTML = data.essentialRedirectURIs.map((uri: string) => 
+              `<div class="py-1 flex">
+                <span class="text-green-600 mr-2">✓</span>
+                <code class="break-all">${uri}</code>
+              </div>`
+            ).join('');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load essential URIs:', error);
+      }
+    };
+    
+    loadEssentialURIs();
+  }, []);
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       <Header 
@@ -290,10 +321,21 @@ const Settings: React.FC = () => {
                           <li>Go to "Credentials" and create an OAuth Client ID</li>
                           <li>For "Application type" select "Web application"</li>
                           <li>Under "Authorized JavaScript origins" add: <code className="bg-gray-100 px-1">{window.location.origin}</code></li>
-                          <li>For "Authorized redirect URIs", click the button below to get the exact URIs to add</li>
+                          <li><strong>For "Authorized redirect URIs", add ONLY the Essential URIs shown below</strong></li>
                         </ol>
                         
                         <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+                          <h6 className="font-semibold text-sm mb-2">Essential Redirect URIs:</h6>
+                          <div id="essentialUrisList" className="mb-3 bg-white p-2 rounded border border-green-200 text-xs font-mono max-h-32 overflow-y-auto">
+                            <div className="animate-pulse flex space-x-4 items-center">
+                              <div className="rounded-full bg-slate-200 h-4 w-4"></div>
+                              <div className="flex-1 space-y-2 py-1">
+                                <div className="h-2 bg-slate-200 rounded"></div>
+                              </div>
+                            </div>
+                            <div className="text-gray-400 text-center mt-2">Loading URIs...</div>
+                          </div>
+                          
                           <div className="flex">
                             <div className="flex-shrink-0">
                               <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
