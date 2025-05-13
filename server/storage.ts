@@ -153,7 +153,16 @@ export class MemStorage implements IStorage {
   }
 
   // Users
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string | number): Promise<User | undefined> {
+    if (typeof id === 'string') {
+      // For string IDs (from Replit Auth), check each user
+      for (const user of this.users.values()) {
+        if (user.id.toString() === id) {
+          return user;
+        }
+      }
+      return undefined;
+    }
     return this.users.get(id);
   }
 
@@ -170,6 +179,22 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       createdAt: now
+    };
+    this.users.set(id, user);
+    return user;
+  }
+  
+  // Add upsertUser method for Replit Auth
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    // For now, we'll create a new user in memory storage
+    // In an actual database implementation, we'd use an upsert operation
+    const id = this.userId++;
+    const now = new Date();
+    const user: User = {
+      ...userData,
+      id,
+      createdAt: now,
+      updatedAt: now
     };
     this.users.set(id, user);
     return user;
