@@ -1420,6 +1420,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // The currently configured callback URL
       const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI;
       
+      // Get all possible redirect URIs
+      const allPossibleRedirectURIs = googleService.getAllPossibleRedirectURIs();
+      
+      // Check if the current domain's callback URL is in the list of possible URIs
+      const currentCallbackInPossibleList = allPossibleRedirectURIs.includes(expectedCallbackUrl);
+      
       // Check if the environment has Replit-specific variables
       const replitInfo = {
         REPL_SLUG: process.env.REPL_SLUG,
@@ -1435,6 +1441,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expectedCallbackUrl,
         configuredCallbackUrl,
         mismatch: expectedCallbackUrl !== configuredCallbackUrl,
+        currentCallbackInPossibleList,
+        allPossibleRedirectURIs,
         replitInfo,
         currentRequestInfo: {
           origin,
@@ -1446,7 +1454,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             origin: req.headers.origin,
             referer: req.headers.referer
           }
-        }
+        },
+        recommendation: `Please add the following redirect URIs to your Google Cloud Console OAuth configuration: ${allPossibleRedirectURIs.join(', ')}`
       });
     } catch (error) {
       console.error("Error checking Google config:", error);

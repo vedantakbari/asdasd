@@ -34,6 +34,38 @@ export function hasValidCredentials(): boolean {
   return !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);
 }
 
+// Helper function to get all possible redirect URIs
+export function getAllPossibleRedirectURIs(): string[] {
+  const redirectURIs: string[] = [];
+  
+  // Add the configured redirect URI from environment variable
+  if (REDIRECT_URI) {
+    redirectURIs.push(REDIRECT_URI);
+  }
+  
+  // Add the alternative Replit redirect URI
+  if (ALT_REDIRECT_URI) {
+    redirectURIs.push(ALT_REDIRECT_URI);
+  }
+  
+  // Add common Replit domains if we can detect them
+  if (REPL_ID) {
+    // Add .replit.dev domain variants
+    redirectURIs.push(`https://${REPL_ID}.id.repl.co/api/auth/google/callback`);
+    redirectURIs.push(`https://${REPL_ID}.id.replit.app/api/auth/google/callback`);
+    redirectURIs.push(`https://${REPL_ID}.id.replit.dev/api/auth/google/callback`);
+    
+    // Add Replit preview domains if we can detect the slug and owner
+    if (REPL_SLUG && REPL_OWNER) {
+      redirectURIs.push(`https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback`);
+      redirectURIs.push(`https://${REPL_SLUG}-${REPL_OWNER}.repl.co/api/auth/google/callback`);
+    }
+  }
+  
+  // Remove duplicates
+  return [...new Set(redirectURIs)];
+}
+
 // Define the scopes we need for Gmail access
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -92,6 +124,7 @@ export async function getTokens(code: string): Promise<any> {
     throw new Error('Cannot exchange token: Google API credentials are missing or incomplete');
   }
   
+  // Try with the default redirect URI first
   const oauth2Client = createAuthClient();
   
   try {
@@ -105,7 +138,42 @@ export async function getTokens(code: string): Promise<any> {
     
     return tokens;
   } catch (error) {
-    console.error('Error exchanging code for tokens:', error);
+    console.error('Error exchanging code for tokens with default redirect URI:', error);
+    
+    // If the first attempt fails, try with all possible redirect URIs
+    const allRedirectURIs = getAllPossibleRedirectURIs();
+    if (allRedirectURIs.length > 1) {
+      console.log('Trying alternative redirect URIs...');
+      
+      for (const redirectURI of allRedirectURIs) {
+        // Skip the one we already tried
+        if (redirectURI === REDIRECT_URI || redirectURI === ALT_REDIRECT_URI) {
+          continue;
+        }
+        
+        try {
+          console.log(`Trying with redirect URI: ${redirectURI}`);
+          const altClient = new google.auth.OAuth2(
+            CLIENT_ID,
+            CLIENT_SECRET,
+            redirectURI
+          );
+          
+          const { tokens } = await altClient.getToken(code);
+          console.log('Successfully obtained tokens with alternative redirect URI');
+          
+          if (!tokens.refresh_token) {
+            console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
+          }
+          
+          return tokens;
+        } catch (altError) {
+          console.error(`Failed with alternative redirect URI ${redirectURI}:`, altError);
+        }
+      }
+    }
+    
+    // If all attempts fail, throw the original error
     throw error;
   }
 }
