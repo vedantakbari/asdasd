@@ -107,15 +107,22 @@ const SCOPES = [
 /**
  * Create an OAuth2 client with the given credentials
  * @param forceNew If true, creates a new client with the most up-to-date credentials
+ * @param specificRedirectUri Optional specific redirect URI to use
  */
-export function createAuthClient(forceNew: boolean = false): OAuth2Client {
+export function createAuthClient(forceNew: boolean = false, specificRedirectUri?: string): OAuth2Client {
   if (!hasValidCredentials()) {
     console.warn('Attempting to create auth client without valid credentials');
   }
   
-  // Try to use the alternative redirect URI if the main one is failing
-  // This helps when running on different Replit environments
-  const redirectUri = getAltRedirectUri() || getRedirectUri();
+  // Use the provided specific redirect URI if available
+  let redirectUri = specificRedirectUri;
+  
+  // If no specific URI is provided, try to use the configured ones
+  if (!redirectUri) {
+    // Try to use the alternative redirect URI if the main one is failing
+    // This helps when running on different Replit environments
+    redirectUri = getRedirectUri() || getAltRedirectUri();
+  }
   
   if (forceNew) {
     console.log("Creating new OAuth client with updated credentials");
@@ -137,12 +144,46 @@ export function getAuthUrl(state?: string): string {
     throw new Error('Cannot generate auth URL: Google API credentials are missing or incomplete');
   }
   
-  const oauth2Client = createAuthClient();
+  // Parse domain and callback URL from state if available
+  let domainInfo = {
+    domain: '',
+    callbackUrl: '',
+    protocol: 'https'
+  };
+  
+  if (state) {
+    try {
+      const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
+      domainInfo.domain = decodedState.domain || '';
+      domainInfo.callbackUrl = decodedState.callbackUrl || '';
+      domainInfo.protocol = decodedState.protocol || 'https';
+    } catch (e) {
+      console.error('Failed to decode state for domain extraction:', e);
+    }
+  }
+  
+  // Determine which redirect URI to use
+  // If we have a callbackUrl in the state, use that as it's dynamically generated based on the current domain
+  const detectedCallbackUrl = domainInfo.callbackUrl;
+  
+  // Create a custom client for this specific authorization URL
+  let oauth2Client;
+  
+  if (detectedCallbackUrl) {
+    console.log(`Using dynamically detected callback URL: ${detectedCallbackUrl}`);
+    oauth2Client = createAuthClient(true, detectedCallbackUrl);
+  } else {
+    console.log(`Using configured callback URL: ${getRedirectUri()}`);
+    oauth2Client = createAuthClient(false);
+  }
+  
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
     prompt: 'consent',
-    state
+    state,
+    // Include_granted_scopes allows incremental authorization requests
+    include_granted_scopes: true
   });
   
   console.log(`Generated Google auth URL with state: ${state ? state.substring(0, 20) + '...' : 'none'}`);

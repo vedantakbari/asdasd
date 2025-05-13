@@ -1526,11 +1526,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Starting Google OAuth flow for Gmail access");
       
-      // Create state parameter to track the OAuth flow
+      // Get the current domain and protocol
+      const currentDomain = req.headers.host || '';
+      const protocol = req.secure || (req.headers['x-forwarded-proto'] === 'https') ? 'https' : 'http';
+      
+      // Build full URL for the callback
+      const dynamicCallbackUrl = `${protocol}://${currentDomain}/api/auth/google/callback`;
+      console.log("Current domain:", currentDomain);
+      console.log("Dynamic callback URL:", dynamicCallbackUrl);
+      
+      // Create state parameter to track the OAuth flow and include domain info
       const state = Buffer.from(JSON.stringify({ 
         userId, 
         for: "email",
         timestamp: Date.now(),
+        domain: currentDomain,
+        protocol: protocol,
+        callbackUrl: dynamicCallbackUrl,
         random: Math.random().toString(36).substring(2)
       })).toString('base64');
       
@@ -1543,6 +1555,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Store a flag in session storage to track the OAuth flow
         if (req.session) {
           req.session.googleOAuthInProgress = true;
+          req.session.oauthStartTime = Date.now();
+          req.session.currentDomain = currentDomain;
         }
         
         return res.redirect(authUrl);
