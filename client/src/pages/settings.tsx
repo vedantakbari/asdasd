@@ -319,7 +319,6 @@ const Settings: React.FC = () => {
                               id="googleClientId" 
                               placeholder="Your Google Client ID (starts with 123456789012-...)" 
                               className="font-mono text-xs"
-                              defaultValue={process.env.GOOGLE_CLIENT_ID || ""}
                             />
                             <p className="text-xs text-gray-500">Get this from Google Cloud Console</p>
                           </div>
@@ -331,7 +330,6 @@ const Settings: React.FC = () => {
                               type="password"
                               placeholder="Your Google Client Secret" 
                               className="font-mono text-xs"
-                              defaultValue={process.env.GOOGLE_CLIENT_SECRET || ""}
                             />
                             <p className="text-xs text-gray-500">Keep this secret secure</p>
                           </div>
@@ -342,7 +340,7 @@ const Settings: React.FC = () => {
                               id="googleRedirectUri" 
                               placeholder={`${window.location.origin}/api/auth/google/callback`}
                               className="font-mono text-xs"
-                              defaultValue={process.env.GOOGLE_REDIRECT_URI || `${window.location.origin}/api/auth/google/callback`}
+                              defaultValue={`${window.location.origin}/api/auth/google/callback`}
                             />
                             <p className="text-xs text-gray-500">This must match one of the redirect URIs in your Google Cloud Console</p>
                           </div>
