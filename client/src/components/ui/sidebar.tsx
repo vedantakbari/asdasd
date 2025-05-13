@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { AuthButton } from "@/components/auth/auth-button";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/components/auth/auth-provider";
 
 const Sidebar = () => {
   const [location] = useLocation();
