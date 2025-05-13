@@ -106,8 +106,9 @@ const SCOPES = [
 
 /**
  * Create an OAuth2 client with the given credentials
+ * @param forceNew If true, creates a new client with the most up-to-date credentials
  */
-export function createAuthClient(): OAuth2Client {
+export function createAuthClient(forceNew: boolean = false): OAuth2Client {
   if (!hasValidCredentials()) {
     console.warn('Attempting to create auth client without valid credentials');
   }
@@ -115,7 +116,11 @@ export function createAuthClient(): OAuth2Client {
   // Try to use the alternative redirect URI if the main one is failing
   // This helps when running on different Replit environments
   const redirectUri = getAltRedirectUri() || getRedirectUri();
-  console.log("Using redirect URI:", redirectUri);
+  
+  if (forceNew) {
+    console.log("Creating new OAuth client with updated credentials");
+    console.log("Using redirect URI:", redirectUri);
+  }
   
   return new google.auth.OAuth2(
     getClientId(),
@@ -175,15 +180,15 @@ export async function getTokens(code: string): Promise<any> {
       
       for (const redirectURI of allRedirectURIs) {
         // Skip the one we already tried
-        if (redirectURI === REDIRECT_URI || redirectURI === ALT_REDIRECT_URI) {
+        if (redirectURI === getRedirectUri() || redirectURI === getAltRedirectUri()) {
           continue;
         }
         
         try {
           console.log(`Trying with redirect URI: ${redirectURI}`);
           const altClient = new google.auth.OAuth2(
-            CLIENT_ID,
-            CLIENT_SECRET,
+            getClientId(),
+            getClientSecret(),
             redirectURI
           );
           

@@ -1441,9 +1441,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Google Credentials Updated");
       googleService.refreshConfiguration();
       
+      // Update the auth client with new credentials to use immediately
+      const newAuthClient = googleService.createAuthClient(true); // force new client
+      
       res.json({ 
         success: true, 
-        message: "Google OAuth credentials updated successfully. Please restart the server for changes to take effect."
+        message: "Google OAuth credentials updated successfully. Try connecting your Gmail account now."
       });
     } catch (error) {
       console.error('Error updating Google credentials:', error);
