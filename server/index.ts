@@ -8,6 +8,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add immediate health check response for Cloud Run
+app.get('/_health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 // Add health check routes - both for API and root path (for Cloud Run)
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
