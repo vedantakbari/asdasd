@@ -11,6 +11,7 @@ import {
   insertPaymentSchema,
   insertActivitySchema,
   LeadStatus,
+  KanbanLane,
 } from "@shared/schema";
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
 import * as googleService from "./googleService";
@@ -37,6 +38,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(clients);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch clients" });
+    }
+  });
+  
+  // Convert a lead to a client
+  app.post("/api/leads/:id/convert-to-client", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const lead = await storage.getLead(id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      // Update the lead to mark it as a client and assign to the first kanban lane
+      const updatedLead = await storage.updateLead(id, {
+        isClient: true,
+        status: LeadStatus.CLIENT,
+        kanbanLane: KanbanLane.NEW_CLIENT
+      });
+      
+      // Create activity for lead conversion
+      if (updatedLead) {
+        await storage.createActivity({
+          activityType: "lead_converted",
+          description: `Lead ${lead.name} converted to client`,
+          userId: 1, // Default to admin user for now
+          relatedLeadId: lead.id
+        });
+      }
+      
+      res.json(updatedLead);
+    } catch (error) {
+      console.error("Error converting lead to client:", error);
+      res.status(500).json({ message: "Failed to convert lead to client" });
     }
   });
   
