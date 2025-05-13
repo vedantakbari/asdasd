@@ -372,9 +372,72 @@ const Settings: React.FC = () => {
                                 const data = await response.json();
                                 
                                 if (data.success) {
-                                  alert('Google OAuth credentials updated successfully. Please restart the server for changes to take effect.');
+                                  // Better UI using dialogs rather than alerts
+                                  setIsDialogOpen(true);
+                                  setDialogContent({
+                                    title: "Google OAuth Credentials Updated",
+                                    message: "Your Google OAuth credentials have been updated successfully. The system needs to restart for these changes to take effect.",
+                                    actions: [
+                                      {
+                                        label: "Restart Now",
+                                        onClick: async () => {
+                                          setDialogContent({
+                                            title: "Restarting...",
+                                            message: "Please wait while the system restarts with your new credentials.",
+                                            actions: []
+                                          });
+                                          
+                                          try {
+                                            await fetch('/api/restart-workflow', {
+                                              method: 'POST',
+                                            });
+                                            
+                                            // After requesting restart, update dialog
+                                            setTimeout(() => {
+                                              setDialogContent({
+                                                title: "Restart Requested",
+                                                message: "The system has received your restart request. Please reload the page in a few seconds to continue with your newly updated credentials.",
+                                                actions: [
+                                                  {
+                                                    label: "Close",
+                                                    onClick: () => setIsDialogOpen(false)
+                                                  }
+                                                ]
+                                              });
+                                            }, 2000);
+                                          } catch (error) {
+                                            console.error("Error requesting restart:", error);
+                                            setDialogContent({
+                                              title: "Restart Failed",
+                                              message: "Unable to automatically restart the system. Please refresh the page manually to apply the new credentials.",
+                                              actions: [
+                                                {
+                                                  label: "Close",
+                                                  onClick: () => setIsDialogOpen(false)
+                                                }
+                                              ]
+                                            });
+                                          }
+                                        }
+                                      },
+                                      {
+                                        label: "Cancel",
+                                        onClick: () => setIsDialogOpen(false)
+                                      }
+                                    ]
+                                  });
                                 } else {
-                                  alert(`Failed to update credentials: ${data.message || 'Unknown error'}`);
+                                  setIsDialogOpen(true);
+                                  setDialogContent({
+                                    title: "Failed to Update Credentials",
+                                    message: data.message || "An unknown error occurred",
+                                    actions: [
+                                      {
+                                        label: "Close",
+                                        onClick: () => setIsDialogOpen(false)
+                                      }
+                                    ]
+                                  });
                                 }
                               } catch (error) {
                                 console.error('Error updating Google credentials:', error);

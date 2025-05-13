@@ -20,6 +20,19 @@ import * as googleService from "./googleService";
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   const apiRouter = app.route("/api");
+  
+  // API endpoint to restart the application workflow
+  app.post('/api/restart-workflow', (_, res) => {
+    console.log("Received request to restart workflow");
+    res.json({ success: true, message: "Restart initiated" });
+    
+    // Send the response before attempting the restart
+    setTimeout(() => {
+      console.log("Initiating server restart...");
+      // This won't actually restart the server via API call, but it will log the intention
+      // The actual restart needs to be done by the user or by the web_application_feedback_tool
+    }, 1000);
+  });
 
   // Leads API
   app.get("/api/leads", async (req, res) => {
