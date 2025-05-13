@@ -1613,58 +1613,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Extract state to get the callback URL used during the OAuth start
       let originalCallbackUrl = '';
+      let userId = 1;
+      
       if (state) {
         try {
           const parsedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
           originalCallbackUrl = parsedState.callbackUrl || '';
+          userId = parsedState.userId || 1;
           console.log('Original callback URL from state:', originalCallbackUrl);
+          console.log('User ID from state:', userId);
         } catch (e) {
           console.error("Error parsing state for callback URL:", e);
         }
       }
       
-      // Create an OAuth client with the same callback URL used during the initial request
-      // This is critical for resolving the 403 error
-      const oauth2Client = originalCallbackUrl 
-        ? googleService.createAuthClient(true, originalCallbackUrl)
-        : googleService.createAuthClient();
+      // Get all possible redirect URIs that could work
+      const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
+      console.log(`Found ${allPossibleURIs.length} possible redirect URIs to try`);
       
-      // Exchange the code directly with the OAuth client that has the matching redirect URI
-      console.log('Using correctly matched OAuth client for token exchange');
+      // Try token exchange with each possible URI until one works
+      let tokens = null;
+      let successfulUri = null;
+      let lastError = null;
       
-      let tokens;
-      try {
-        // Pass the original callback URL to our improved getTokens function
-        console.log('Calling getTokens with original callback URL:', originalCallbackUrl);
-        tokens = await googleService.getTokens(code as string, originalCallbackUrl);
-        console.log('Successfully obtained tokens!');
-      } catch (tokenError) {
-        console.error('Token exchange failed:', tokenError);
-        return res.redirect('/inbox?status=error&reason=token_exchange_failed');
+      // First try with the original callback URL from state if available
+      if (originalCallbackUrl) {
+        try {
+          console.log('Trying token exchange with original callback URL:', originalCallbackUrl);
+          tokens = await googleService.getTokens(code as string, originalCallbackUrl);
+          console.log('Successfully obtained tokens with original callback URL!');
+          successfulUri = originalCallbackUrl;
+        } catch (err) {
+          console.error('Failed with original callback URL:', err.message);
+          lastError = err;
+          // Continue to try other URIs
+        }
+      }
+      
+      // If that didn't work, try with the configured URI
+      if (!tokens) {
+        const configuredUri = process.env.GOOGLE_REDIRECT_URI;
+        if (configuredUri && configuredUri !== originalCallbackUrl) {
+          try {
+            console.log('Trying token exchange with configured URI:', configuredUri);
+            tokens = await googleService.getTokens(code as string, configuredUri);
+            console.log('Successfully obtained tokens with configured URI!');
+            successfulUri = configuredUri;
+          } catch (err) {
+            console.error('Failed with configured URI:', err.message);
+            lastError = err;
+            // Continue to try URIs from our pre-calculated list
+          }
+        }
+      }
+      
+      // If we still don't have tokens, try a few of the other possible URIs
+      if (!tokens) {
+        // Try with a subset of the most important URIs
+        const importantURIs = allPossibleURIs.slice(0, 3); // Just try the first 3 URIs
+        
+        for (const uri of importantURIs) {
+          if (uri !== originalCallbackUrl && uri !== process.env.GOOGLE_REDIRECT_URI) {
+            try {
+              console.log('Trying token exchange with URI:', uri);
+              tokens = await googleService.getTokens(code as string, uri);
+              console.log('Successfully obtained tokens with URI:', uri);
+              successfulUri = uri;
+              break; // Stop once we get a successful token
+            } catch (err) {
+              console.error(`Failed with URI ${uri}:`, err.message);
+              lastError = err;
+              // Continue to next URI
+            }
+          }
+        }
       }
       
       console.log('Tokens received:', tokens ? 'success' : 'failure');
       
+      // If we found a successful URI, update the environment variable
+      if (successfulUri && successfulUri !== process.env.GOOGLE_REDIRECT_URI) {
+        console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', successfulUri);
+        process.env.GOOGLE_REDIRECT_URI = successfulUri;
+      }
+      
       if (!tokens || !tokens.access_token) {
-        console.error('Failed to get access token.');
+        console.error('Failed to get access token after trying multiple URIs.');
+        if (lastError) {
+          console.error('Last error message:', lastError.message);
+        }
         return res.redirect('/inbox?status=error&reason=token_exchange_failed');
       }
       
       // Get user info
       console.log('Getting user info with access token...');
-      const userInfo = await googleService.getUserInfo(tokens.access_token);
-      
-      // Get user ID from state
-      let userId = 1; // Default user ID
-      if (state) {
-        try {
-          const parsedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
-          userId = parsedState.userId || 1;
-          console.log('Parsed state, userId:', userId);
-        } catch (e) {
-          console.error("Error parsing state:", e);
-        }
+      let userInfo;
+      try {
+        userInfo = await googleService.getUserInfo(tokens.access_token);
+        console.log('User info retrieved successfully!');
+      } catch (userInfoError) {
+        console.error('Error fetching user info:', userInfoError);
+        return res.redirect('/inbox?status=error&reason=user_info_failed');
       }
+      
+      // We already extracted userId from state earlier, so we don't need to do it again
+      console.log('Using userId:', userId);
       
       // Get user email from Google response
       let emailAddress = '';
