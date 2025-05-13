@@ -566,39 +566,202 @@ const Clients: React.FC = () => {
         </div>
       </div>
       
-      {isLoading ? (
+      {isLoadingClients || isLoadingPipelines ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" aria-label="Loading"/>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
-          {/* Kanban lanes */}
-          {kanbanLanes.map(lane => (
-            <div 
-              key={lane.id} 
-              className="bg-gray-50 rounded-lg p-3"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, lane.id)}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-semibold text-gray-700">{lane.title}</h3>
-                <Badge variant="secondary" className="text-xs">
-                  {lane.items.length}
-                </Badge>
-              </div>
+        <>
+          {/* Pipeline selector */}
+          <div className="mb-4 flex justify-between items-center">
+            <div className="flex items-center">
+              <label htmlFor="pipeline-select" className="mr-2 text-sm font-medium">
+                Pipeline:
+              </label>
+              <Select
+                value={selectedPipelineId?.toString()}
+                onValueChange={(value) => setSelectedPipelineId(parseInt(value))}
+              >
+                <SelectTrigger className="w-[200px]" id="pipeline-select">
+                  <SelectValue placeholder="Select a pipeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelines.map((pipeline) => (
+                    <SelectItem key={pipeline.id} value={pipeline.id.toString()}>
+                      {pipeline.name}
+                      {pipeline.isDefault && " (Default)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               
-              {lane.items.map(client => (
-                <ClientCard key={client.id} client={client} />
-              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-2"
+                onClick={() => setCreatePipelineDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                New Pipeline
+              </Button>
               
-              {lane.items.length === 0 && (
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  No clients in this lane
-                </div>
+              {selectedPipelineId && !pipelines.find(p => p.id === selectedPipelineId)?.isDefault && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => setDefaultPipelineMutation.mutate(selectedPipelineId)}
+                  disabled={setDefaultPipelineMutation.isPending}
+                >
+                  Set as Default
+                </Button>
               )}
             </div>
-          ))}
-        </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Kanban lanes */}
+            {kanbanLanes.map(lane => (
+              <div 
+                key={lane.id} 
+                className="bg-gray-50 rounded-lg p-3"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, lane.id)}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center">
+                    <h3 className="font-semibold text-gray-700 mr-1">{lane.title}</h3>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                      onClick={() => {
+                        if (selectedPipelineId) {
+                          setRenameLaneDialog({
+                            isOpen: true,
+                            pipelineId: selectedPipelineId,
+                            laneId: lane.id,
+                            currentName: lane.title
+                          });
+                          setNewLaneName(lane.title);
+                        }
+                      }}
+                    >
+                      <PencilLine className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {lane.items.length}
+                  </Badge>
+                </div>
+                
+                {lane.items.map(client => (
+                  <ClientCard key={client.id} client={client} />
+                ))}
+                
+                {lane.items.length === 0 && (
+                  <div className="text-center py-8 text-gray-400 text-sm">
+                    No clients in this lane
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          {/* Client detail modal */}
+          <ClientDetailModal />
+          
+          {/* New pipeline dialog */}
+          <Dialog open={createPipelineDialog} onOpenChange={setCreatePipelineDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Pipeline</DialogTitle>
+                <DialogDescription>
+                  Enter a name for your new workflow pipeline.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="pipeline-name" className="text-right text-sm font-medium">
+                    Name
+                  </label>
+                  <Input
+                    id="pipeline-name"
+                    value={newPipelineName}
+                    onChange={(e) => setNewPipelineName(e.target.value)}
+                    className="col-span-3"
+                    placeholder="e.g., Buyer Workflow"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreatePipelineDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => createPipelineMutation.mutate(newPipelineName)}
+                  disabled={!newPipelineName || createPipelineMutation.isPending}
+                >
+                  Create Pipeline
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Rename lane dialog */}
+          <Dialog 
+            open={renameLaneDialog.isOpen} 
+            onOpenChange={(open) => !open && setRenameLaneDialog(prev => ({...prev, isOpen: false}))}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename Lane</DialogTitle>
+                <DialogDescription>
+                  Enter a new name for this lane.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <label htmlFor="lane-name" className="text-right text-sm font-medium">
+                    Name
+                  </label>
+                  <Input
+                    id="lane-name"
+                    value={newLaneName}
+                    onChange={(e) => setNewLaneName(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setRenameLaneDialog(prev => ({...prev, isOpen: false}))}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (renameLaneDialog.pipelineId && renameLaneDialog.laneId) {
+                      renameLaneMutation.mutate({
+                        pipelineId: renameLaneDialog.pipelineId,
+                        laneId: renameLaneDialog.laneId,
+                        name: newLaneName
+                      });
+                    }
+                  }}
+                  disabled={!newLaneName || renameLaneMutation.isPending}
+                >
+                  Save
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );
