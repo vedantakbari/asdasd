@@ -12,11 +12,7 @@ app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
 
-// Add explicit root route handler for health checks
-app.get("/", (_req, res) => {
-  res.status(200).send("OK");
-});
-
+// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -30,21 +26,24 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (capturedJsonResponse) {
+      logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
     }
+
+    if (logLine.length > 80) {
+      logLine = logLine.slice(0, 79) + "…";
+    }
+
+    log(logLine);
   });
 
   next();
+});
+
+// Add health check routes before static file serving
+app.get("/", (_req, res) => {
+  res.status(200).send("OK");
 });
 
 // Check for Google OAuth credentials
@@ -62,9 +61,10 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
+    
+    log(`Error: ${status} - ${message}`);
+    
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -112,9 +112,11 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   const port = 5000;
   server.listen({
     port,
-    host: "0.0.0.0",
+    host: "0.0.0.0", 
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server started successfully`);
+    log(`Environment: ${process.env.NODE_ENV}`);
+    log(`Listening on port ${port}`);
   });
 })();
