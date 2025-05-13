@@ -165,7 +165,20 @@ const Inbox: React.FC = () => {
         console.error('Failed to parse compose email data:', error);
       }
     }
-  }, []);
+    
+    // Load available email accounts after component is mounted
+    apiRequest('GET', '/api/email/accounts')
+      .then(response => response.json())
+      .then(accounts => {
+        // If we have accounts but no selected account, select the first one
+        if (accounts && accounts.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(accounts[0].id);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to load email accounts:', error);
+      });
+  }, [queryClient]);
   
   // Fetch email accounts
   const { data: emailAccounts = [], isLoading: isLoadingAccounts } = useQuery({
@@ -334,17 +347,24 @@ const Inbox: React.FC = () => {
   );
   
   const handleComposeSubmit = () => {
-    if (!selectedAccountId) {
+    // If no account is selected, try to use the first available account
+    let accountIdToUse = selectedAccountId;
+    
+    if (!accountIdToUse && emailAccounts.length > 0) {
+      accountIdToUse = emailAccounts[0].id;
+    }
+    
+    if (!accountIdToUse) {
       toast({
-        title: 'No Email Account Selected',
-        description: 'Please select an email account to send from.',
+        title: 'No Email Account Available',
+        description: 'Please connect an email account before sending emails.',
         variant: 'destructive'
       });
       return;
     }
     
     sendEmailMutation.mutate({
-      accountId: selectedAccountId,
+      accountId: accountIdToUse,
       to: composeData.to,
       subject: composeData.subject,
       body: composeData.body,
@@ -823,7 +843,12 @@ const Inbox: React.FC = () => {
             setLeadId(undefined);
           }
         }}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[600px]" onOpenAutoFocus={(e) => {
+            // Automatically select the first email account if none is selected
+            if (!selectedAccountId && emailAccounts.length > 0) {
+              setSelectedAccountId(emailAccounts[0].id);
+            }
+          }}>
           <DialogHeader>
             <DialogTitle>
               {leadId ? 'Email Client' : 'Compose New Email'}
@@ -836,7 +861,8 @@ const Inbox: React.FC = () => {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            {emailAccounts.length > 1 && (
+            {/* Always show the from field if there are any accounts, not just if there are multiple */}
+            {emailAccounts.length > 0 && (
               <div className="grid grid-cols-4 items-center gap-2">
                 <label htmlFor="from" className="text-right text-sm font-medium">
                   From:
@@ -853,6 +879,24 @@ const Inbox: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+            )}
+            
+            {/* Show a friendly message if no email accounts are available */}
+            {emailAccounts.length === 0 && (
+              <div className="col-span-4 bg-amber-50 border border-amber-200 rounded-md p-3 mb-2">
+                <p className="text-amber-800 text-sm flex items-center">
+                  <span className="mr-2">⚠️</span>
+                  You need to connect an email account before you can send emails.
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2"
+                  onClick={() => setIsAddEmailAccountOpen(true)}
+                >
+                  Add Email Account
+                </Button>
               </div>
             )}
             
@@ -904,12 +948,23 @@ const Inbox: React.FC = () => {
             <Button 
               type="submit" 
               onClick={handleComposeSubmit}
-              disabled={!composeData.to || !composeData.subject || !composeData.body || sendEmailMutation.isPending}
+              disabled={
+                !composeData.to || 
+                !composeData.subject || 
+                !composeData.body || 
+                emailAccounts.length === 0 || 
+                sendEmailMutation.isPending
+              }
             >
               {sendEmailMutation.isPending ? (
                 <>
                   <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
                   Sending...
+                </>
+              ) : emailAccounts.length === 0 ? (
+                <>
+                  <Mail size={16} className="mr-2" />
+                  Add Email Account First
                 </>
               ) : (
                 <>
