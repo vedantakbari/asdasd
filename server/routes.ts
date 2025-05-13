@@ -41,6 +41,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clients = leads.filter(lead => lead.isClient === true);
       console.log("Found clients:", clients.length);
       
+      // Check for and fix any clients that are missing kanban lanes
+      const fixNeeded = clients.filter(client => !client.kanbanLane);
+      if (fixNeeded.length > 0) {
+        console.log(`Found ${fixNeeded.length} clients missing kanban lanes, fixing them...`);
+        
+        // Get default pipeline for the fix
+        const defaultPipeline = await storage.getDefaultPipeline();
+        
+        for (const client of fixNeeded) {
+          const updateData: Partial<InsertLead> = {
+            kanbanLane: KanbanLane.PRESENT_VALUATION
+          };
+          
+          if (defaultPipeline) {
+            updateData.pipelineId = defaultPipeline.id;
+          }
+          
+          await storage.updateLead(client.id, updateData);
+          console.log(`Fixed client ${client.id} (${client.name}): set kanbanLane=${KanbanLane.PRESENT_VALUATION}`);
+        }
+        
+        // Re-fetch all leads after updating
+        const updatedLeads = await storage.getLeads();
+        const updatedClients = updatedLeads.filter(lead => lead.isClient === true);
+        console.log("After fixing, found clients:", updatedClients.length);
+        return res.json(updatedClients);
+      }
+      
       // If we didn't find any clients, but we have leads with isClient === undefined,
       // this might be due to legacy data. Let's try to convert any lead marked as CLIENT status
       if (clients.length === 0) {
@@ -112,11 +140,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Default pipeline:", defaultPipeline ? defaultPipeline.name : "None");
       
       // Update the lead to mark it as a client and assign to the first kanban lane
+      // Use the correct lane from the KanbanLane enum - PRESENT_VALUATION is the first lane for real estate
       const updateData: Partial<InsertLead> = {
         isClient: true,
         status: LeadStatus.CLIENT,
-        kanbanLane: KanbanLane.NEW_CLIENT
+        kanbanLane: KanbanLane.PRESENT_VALUATION // First lane for real estate workflow
       };
+      
+      console.log("Setting kanban lane to:", KanbanLane.PRESENT_VALUATION);
       
       // If a default pipeline exists, assign it to the client
       if (defaultPipeline) {

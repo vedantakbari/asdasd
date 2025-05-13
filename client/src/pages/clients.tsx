@@ -240,7 +240,9 @@ const Clients: React.FC = () => {
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' '),
         items: filteredClients.filter(client => 
-          client.kanbanLane === lane.id && 
+          // Check for exact lane id match
+          (client.kanbanLane === lane.id) && 
+          // Include clients that belong to this pipeline or clients without a pipelineId if this is the default pipeline
           (client.pipelineId === selectedPipelineId || (!client.pipelineId && selectedPipeline.isDefault))
         )
       }))
@@ -250,8 +252,18 @@ const Clients: React.FC = () => {
           .split('_')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
           .join(' '),
+        // For fallback behavior, just show any clients with matching kanban lane
         items: filteredClients.filter(client => client.kanbanLane === lane)
       }));
+      
+  // Debug client data
+  console.log("Selected Pipeline ID:", selectedPipelineId);
+  console.log("Filtered Clients:", filteredClients.map(c => ({
+    name: c.name, 
+    isClient: c.isClient, 
+    kanbanLane: c.kanbanLane,
+    pipelineId: c.pipelineId
+  })));
   
   // Handle drag start
   const handleDragStart = (client: Lead) => {
