@@ -312,7 +312,7 @@ export type InsertGoogleCalendarSettings = z.infer<typeof insertGoogleCalendarSe
 // Email Account Integration
 export const emailAccounts = pgTable("email_accounts", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").notNull().references(() => users.id),
   provider: text("provider").notNull(), // gmail, outlook, imap, etc.
   email: text("email").notNull(),
   password: text("password"), // Encrypted password for SMTP

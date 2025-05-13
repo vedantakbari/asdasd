@@ -29,8 +29,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Import the email router from our routes/email.ts file
   console.log("Email routes registered through router");
   
-  // Add auth user route for the client to check authentication status
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  // Auth user endpoint
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       console.log("Looking for user with ID:", userId);

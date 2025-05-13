@@ -1,41 +1,17 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth, getSession, isAuthenticated } from "./replitAuth";
-import passport from "passport";
+import { setupAuth } from "./replitAuth";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add immediate health check response for Cloud Run
-app.get('/_health', (req, res) => {
-  res.status(200).send('OK');
-});
-
-// Add health check routes - both for API and root path (for Cloud Run)
+// Add health check route but only respond when requesting /api/health
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
 
-// Add root health check that responds immediately for Cloud Run
-app.get("/", (req, res, next) => {
-  // If request accepts HTML, serve the landing page
-  if (req.accepts('html')) {
-    // Pass through to normal handlers
-    return next();
-  }
-  // For health checks, respond immediately
-  res.status(200).send("OK");
-});
-
-// Check for Google OAuth credentials
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  log("Warning: Google API credentials are not set. Gmail integration will not work properly.", "server");
-  log("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.", "server");
-}
-
-// Add request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -49,137 +25,78 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-    if (capturedJsonResponse) {
-      logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-    }
+    if (path.startsWith("/api")) {
+      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
 
-    if (logLine.length > 80) {
-      logLine = logLine.slice(0, 79) + "…";
-    }
+      if (logLine.length > 80) {
+        logLine = logLine.slice(0, 79) + "…";
+      }
 
-    log(logLine);
+      log(logLine);
+    }
   });
 
   next();
 });
 
+// Check for Google OAuth credentials
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  log("Warning: Google API credentials are not set. Gmail integration will not work properly.", "server");
+  log("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.", "server");
+}
+
 (async () => {
   // Set up Replit Auth
   await setupAuth(app);
   
-  // Serve static files from the public directory
-  app.use(express.static('public'));
-  
-  // Always serve the static dashboard for all main app routes
-  const appRoutes = ["/" , "/dashboard", "/leads", "/clients", "/calendar", "/tasks", "/inbox", "/payments", "/reports", "/settings", "/email-sync"];
-  
-  appRoutes.forEach(route => {
-    app.get(route, (req, res, next) => {
-      try {
-        // Handle authentication check
-        if (!req.isAuthenticated()) {
-          return res.redirect('/api/login');
-        }
-        
-        // Serve static dashboard for now
-        log(`Serving static dashboard for route: ${route}`);
-        return res.sendFile('static-dashboard.html', { root: './public' });
-      } catch (error) {
-        log(`Error in route ${route}: ${error}`);
-        // Serve static dashboard even on error
-        return res.sendFile('static-dashboard.html', { root: './public' });
-      }
-    });
-  });
-  
-  // Dashboard route already covered in the pattern above
-
   const server = await registerRoutes(app);
 
-  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    
-    log(`Error: ${status} - ${message}`);
-    
-    // If this is a database connection error or authentication error and the request accepts HTML
-    if ((err.code === '57P01' || message.includes('database') || message.includes('connection') || message.includes('Unauthorized')) && req.accepts('html')) {
-      // Serve our static HTML dashboard as fallback
-      log("Serving static dashboard due to database/auth error");
-      return res.sendFile('static-dashboard.html', { root: './public' });
-    }
-    
+
     res.status(status).json({ message });
+    throw err;
   });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  console.log("[express] Environment:", app.get("env"));
-
   if (app.get("env") === "development") {
     await setupVite(app, server);
-    console.log("[express] Using Vite development server");
   } else {
     try {
-      console.log("[express] Using static file serving");
-      
-      // Serve static files - this should match the Vite build output path
-      app.use(express.static("./dist/public"));
-      
-      // In production, use the same routes pattern as in development
-      const appRoutes = ["/" , "/dashboard", "/leads", "/clients", "/calendar", "/tasks", "/inbox", "/payments", "/reports", "/settings", "/email-sync"];
-      
-      appRoutes.forEach(route => {
-        app.get(route, (req, res, next) => {
-          try {
-            // Handle authentication check
-            if (!req.isAuthenticated()) {
-              return res.redirect('/api/login');
-            }
-            
-            // Serve static dashboard
-            console.log(`[express] Serving static dashboard for route: ${route}`);
-            return res.sendFile('static-dashboard.html', { root: './public' });
-          } catch (error) {
-            console.error(`[express] Error in route ${route}:`, error);
-            // Serve static dashboard even on error
-            return res.sendFile('static-dashboard.html', { root: './public' });
-          }
-        });
-      });
-      
-      // Add fallback catch-all route to serve index.html for all non-API routes
-      app.use("*", (req, res, next) => {
-        console.log("[express] Serving route:", req.originalUrl);
-        
-        if (req.originalUrl.startsWith("/api")) {
-          return next();
-        }
-        
-        console.log("[express] Serving index.html for client-side routing");
-        res.sendFile("index.html", { root: "./dist/public" });
-      });
+      serveStatic(app);
     } catch (e) {
       console.error("Error setting up static file serving:", e);
       
-      // Error page as ultimate fallback
+      // Add fallback middleware if serveStatic fails
+      app.use(express.static("./dist/public"));
+      
+      // Add fallback catch-all route to serve index.html for all non-API routes
       app.use("*", (req, res, next) => {
         if (req.originalUrl.startsWith("/api")) {
           return next();
         }
         
-        res.status(200).send(`
-          <html>
-            <head><title>Home Services CRM</title></head>
-            <body>
-              <h1>Home Services CRM</h1>
-              <p>Application is running. Please try accessing a specific route like 
-              <a href="/dashboard">/dashboard</a></p>
-            </body>
-          </html>
-        `);
+        try {
+          res.sendFile("index.html", { root: "./public" });
+        } catch (err) {
+          console.error("Error serving fallback index.html:", err);
+          res.status(200).send(`
+            <html>
+              <head><title>Home Services CRM</title></head>
+              <body>
+                <h1>Home Services CRM</h1>
+                <p>Application is running. Please try accessing a specific route like 
+                <a href="/dashboard">/dashboard</a></p>
+              </body>
+            </html>
+          `);
+        }
       });
     }
   }
@@ -190,11 +107,9 @@ app.use((req, res, next) => {
   const port = 5000;
   server.listen({
     port,
-    host: "0.0.0.0", 
+    host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`Server started successfully`);
-    log(`Environment: ${process.env.NODE_ENV}`);
-    log(`Listening on port ${port}`);
+    log(`serving on port ${port}`);
   });
 })();

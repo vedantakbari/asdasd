@@ -3,10 +3,9 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState, Suspense, lazy } from "react";
+import { useState } from "react";
 import Sidebar from "@/components/ui/sidebar";
 import MobileSidebar from "@/components/ui/mobile-sidebar";
-import ErrorBoundary from "@/components/error-boundary";
 import Dashboard from "@/pages/dashboard";
 import Leads from "@/pages/leads";
 import Clients from "@/pages/clients";
@@ -28,99 +27,57 @@ import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-  
-  // Create a wrapper for protected routes
-  const ProtectedComponent = ({ component: Component }: { component: React.ComponentType<any> }) => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
-        </div>
-      );
-    }
-    
-    if (!isAuthenticated) {
-      // Redirect to login
-      window.location.href = '/api/login';
-      return (
-        <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
-          <p className="ml-3">Redirecting to login...</p>
-        </div>
-      );
-    }
-    
+
+  if (isLoading) {
     return (
-      <ErrorBoundary>
-        <Component />
-      </ErrorBoundary>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
     );
-  };
+  }
 
   // Public route for booking
   if (window.location.pathname.startsWith('/booking/')) {
     return (
       <Switch>
-        <Route path="/booking/:userId">
-          {(params) => <BookingPage userId={params.userId} />}
-        </Route>
+        <Route path="/booking/:userId" component={BookingPage} />
       </Switch>
     );
   }
 
-  // Main router with protected routes
+  // Show landing pages for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/" component={LandingPage} />
+        <Route path="/about" component={AboutPage} />
+        <Route path="/contact" component={ContactPage} />
+        <Route path="/faq" component={FAQPage} />
+        <Route path="/privacy" component={PrivacyPage} />
+        <Route component={LandingPage} />
+      </Switch>
+    );
+  }
+
+  // Show CRM app for authenticated users
   return (
     <Switch>
-      <Route path="/leads/new">
-        <ProtectedComponent component={Leads} />
-      </Route>
-      <Route path="/leads/:id/edit">
-        <ProtectedComponent component={Leads} />
-      </Route>
-      <Route path="/leads/:id">
-        <ProtectedComponent component={Leads} />
-      </Route>
-      <Route path="/leads">
-        <ProtectedComponent component={Leads} />
-      </Route>
-      <Route path="/clients/new">
-        <ProtectedComponent component={Clients} />
-      </Route>
-      <Route path="/clients/:id">
-        <ProtectedComponent component={Clients} />
-      </Route>
-      <Route path="/clients">
-        <ProtectedComponent component={Clients} />
-      </Route>
-      <Route path="/calendar">
-        <ProtectedComponent component={CalendarPage} />
-      </Route>
-      <Route path="/tasks">
-        <ProtectedComponent component={Tasks} />
-      </Route>
-      <Route path="/inbox">
-        <ProtectedComponent component={Inbox} />
-      </Route>
-      <Route path="/payments">
-        <ProtectedComponent component={Payments} />
-      </Route>
-      <Route path="/reports">
-        <ProtectedComponent component={Reports} />
-      </Route>
-      <Route path="/settings">
-        <ProtectedComponent component={Settings} />
-      </Route>
-      <Route path="/email-sync">
-        <ProtectedComponent component={EmailSync} />
-      </Route>
-      <Route path="/">
-        <ProtectedComponent component={Dashboard} />
-      </Route>
-      <Route>
-        <ErrorBoundary>
-          <NotFound />
-        </ErrorBoundary>
-      </Route>
+      <Route path="/leads/new" component={Leads} />
+      <Route path="/leads/:id/edit" component={Leads} />
+      <Route path="/leads/:id" component={Leads} />
+      <Route path="/leads" component={Leads} />
+      <Route path="/clients/new" component={Clients} />
+      <Route path="/clients/:id" component={Clients} />
+      <Route path="/clients" component={Clients} />
+      <Route path="/calendar" component={CalendarPage} />
+      <Route path="/tasks" component={Tasks} />
+      <Route path="/inbox" component={Inbox} />
+      <Route path="/payments" component={Payments} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/settings" component={Settings} />
+      <Route path="/email-sync" component={EmailSync} />
+      <Route path="/" component={Dashboard} />
+      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -176,9 +133,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
+          <AppContent />
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
