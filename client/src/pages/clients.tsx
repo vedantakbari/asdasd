@@ -329,34 +329,7 @@ const Clients: React.FC = () => {
           </DropdownMenu>
         </div>
         
-        {/* Deal value */}
-        {client.value && (
-          <div className="mb-2 flex items-center text-sm font-semibold text-green-600">
-            <DollarSign className="h-3.5 w-3.5 mr-1" />
-            {new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'USD',
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0
-            }).format(client.value)}
-          </div>
-        )}
-        
-        {/* Contact information */}
-        <div className="my-2 space-y-1">
-          {client.phone && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Phone className="h-3 w-3 mr-1" />
-              {client.phone}
-            </div>
-          )}
-          {client.email && (
-            <div className="flex items-center text-xs text-gray-600">
-              <Mail className="h-3 w-3 mr-1" />
-              {client.email}
-            </div>
-          )}
-        </div>
+        {/* We're removing deal value and contact information from the card as requested */}
         
         {/* Labels */}
         {client.labels && Array.isArray(client.labels) && client.labels.length > 0 && (
@@ -503,15 +476,120 @@ const Clients: React.FC = () => {
           
           <DialogFooter>
             <div className="flex justify-between w-full">
-              <Button variant="outline" asChild>
-                <Link href={`/leads/${client.id}/edit`}>Edit Client</Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline">
+                    <CalendarPlus className="h-4 w-4 mr-2" />
+                    Schedule Activity
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/calendar/new?leadId=${client.id}`} className="flex items-center">
+                      <CalendarPlus className="h-4 w-4 mr-2" />
+                      Schedule Appointment
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const today = new Date();
+                    const task = {
+                      title: `Call ${client.name}`,
+                      description: "Follow-up call with client",
+                      dueDate: today.toISOString(),
+                      assigneeId: 1, // Default assignee (current user)
+                      priority: "high",
+                      status: "pending"
+                    };
+                    
+                    // Create a new task
+                    apiRequest("POST", "/api/tasks", task)
+                      .then(() => {
+                        toast({
+                          title: "Call scheduled",
+                          description: `Call with ${client.name} added to your tasks`,
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+                      })
+                      .catch(error => {
+                        toast({
+                          title: "Error",
+                          description: "Failed to schedule call",
+                          variant: "destructive"
+                        });
+                      });
+                  }}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Schedule Call
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const today = new Date();
+                    const task = {
+                      title: `Follow up with ${client.name}`,
+                      description: "General follow-up with client",
+                      dueDate: today.toISOString(),
+                      assigneeId: 1, // Default assignee (current user)
+                      priority: "medium",
+                      status: "pending"
+                    };
+                    
+                    // Create a new task
+                    apiRequest("POST", "/api/tasks", task)
+                      .then(() => {
+                        toast({
+                          title: "Follow-up scheduled",
+                          description: `Follow-up with ${client.name} added to your tasks`,
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+                      })
+                      .catch(error => {
+                        toast({
+                          title: "Error",
+                          description: "Failed to schedule follow-up",
+                          variant: "destructive"
+                        });
+                      });
+                  }}>
+                    <Activity className="h-4 w-4 mr-2" />
+                    Schedule Follow-up
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Button 
+                variant="default" 
+                onClick={() => {
+                  // Open email client with client email
+                  if (client.email) {
+                    window.location.href = `mailto:${client.email}`;
+                    
+                    // Log this email activity
+                    const activity = {
+                      userId: 1,
+                      activityType: "email_sent",
+                      description: `Email sent to ${client.name}`,
+                      entityType: "lead",
+                      entityId: client.id
+                    };
+                    
+                    apiRequest("POST", "/api/activities", activity)
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                      })
+                      .catch(error => {
+                        console.error("Failed to log email activity:", error);
+                      });
+                  } else {
+                    toast({
+                      title: "Error",
+                      description: "No email address available for this client",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Email Client
               </Button>
-              <div>
-                <Button variant="outline" className="mr-2" asChild>
-                  <Link href={`/calendar/new?leadId=${client.id}`}>Schedule Appointment</Link>
-                </Button>
-                <Button>Schedule Call</Button>
-              </div>
             </div>
           </DialogFooter>
         </DialogContent>

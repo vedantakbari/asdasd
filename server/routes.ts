@@ -24,7 +24,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Leads API
   app.get("/api/leads", async (req, res) => {
     try {
-      const leads = await storage.getLeads();
+      const allLeads = await storage.getLeads();
+      // Filter out leads that have been converted to clients
+      const leads = allLeads.filter(lead => lead.isClient !== true);
       res.json(leads);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch leads" });
