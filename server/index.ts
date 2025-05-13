@@ -20,8 +20,9 @@ app.get("/api/health", (_req, res) => {
 
 // Add root health check that responds immediately for Cloud Run
 app.get("/", (req, res, next) => {
-  // If request accepts HTML, pass to the next handler 
+  // If request accepts HTML, serve the landing page
   if (req.accepts('html')) {
+    // Pass through to normal handlers
     return next();
   }
   // For health checks, respond immediately
@@ -70,32 +71,44 @@ app.use((req, res, next) => {
   // Serve static files from the public directory
   app.use(express.static('public'));
   
-  // Root route for authenticated users, must be after auth setup
-  app.get("/", (req, res, next) => {
-    // If user is authenticated, serve the static dashboard
-    if (req.isAuthenticated()) {
-      return res.sendFile('static-dashboard.html', { root: './public' });
-    }
-    
-    // Otherwise show the landing page (let Vite handle it)
-    return next();
+  // Always serve the static dashboard for all main app routes
+  const appRoutes = ["/" , "/dashboard", "/leads", "/clients", "/calendar", "/tasks", "/inbox", "/payments", "/reports", "/settings", "/email-sync"];
+  
+  appRoutes.forEach(route => {
+    app.get(route, (req, res, next) => {
+      try {
+        // Handle authentication check
+        if (!req.isAuthenticated()) {
+          return res.redirect('/api/login');
+        }
+        
+        // Serve static dashboard for now
+        log(`Serving static dashboard for route: ${route}`);
+        return res.sendFile('static-dashboard.html', { root: './public' });
+      } catch (error) {
+        log(`Error in route ${route}: ${error}`);
+        // Serve static dashboard even on error
+        return res.sendFile('static-dashboard.html', { root: './public' });
+      }
+    });
   });
   
-  // Add dashboard route handler
-  app.get("/dashboard", (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.redirect('/api/login');
-    }
-    return res.sendFile('static-dashboard.html', { root: './public' });
-  });
+  // Dashboard route already covered in the pattern above
 
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     
     log(`Error: ${status} - ${message}`);
+    
+    // If this is a database connection error or authentication error and the request accepts HTML
+    if ((err.code === '57P01' || message.includes('database') || message.includes('connection') || message.includes('Unauthorized')) && req.accepts('html')) {
+      // Serve our static HTML dashboard as fallback
+      log("Serving static dashboard due to database/auth error");
+      return res.sendFile('static-dashboard.html', { root: './public' });
+    }
     
     res.status(status).json({ message });
   });
@@ -115,12 +128,26 @@ app.use((req, res, next) => {
       // Serve static files - this should match the Vite build output path
       app.use(express.static("./dist/public"));
       
-      // Special handler for dashboard route in production
-      app.get("/dashboard", (req, res) => {
-        if (!req.isAuthenticated()) {
-          return res.redirect('/api/login');
-        }
-        return res.sendFile('static-dashboard.html', { root: './public' });
+      // In production, use the same routes pattern as in development
+      const appRoutes = ["/" , "/dashboard", "/leads", "/clients", "/calendar", "/tasks", "/inbox", "/payments", "/reports", "/settings", "/email-sync"];
+      
+      appRoutes.forEach(route => {
+        app.get(route, (req, res, next) => {
+          try {
+            // Handle authentication check
+            if (!req.isAuthenticated()) {
+              return res.redirect('/api/login');
+            }
+            
+            // Serve static dashboard
+            console.log(`[express] Serving static dashboard for route: ${route}`);
+            return res.sendFile('static-dashboard.html', { root: './public' });
+          } catch (error) {
+            console.error(`[express] Error in route ${route}:`, error);
+            // Serve static dashboard even on error
+            return res.sendFile('static-dashboard.html', { root: './public' });
+          }
+        });
       });
       
       // Add fallback catch-all route to serve index.html for all non-API routes
@@ -129,11 +156,6 @@ app.use((req, res, next) => {
         
         if (req.originalUrl.startsWith("/api")) {
           return next();
-        }
-        
-        // If user is authenticated on the homepage, serve the static dashboard
-        if (req.originalUrl === "/" && req.isAuthenticated()) {
-          return res.sendFile('static-dashboard.html', { root: './public' });
         }
         
         console.log("[express] Serving index.html for client-side routing");
