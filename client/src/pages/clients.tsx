@@ -574,7 +574,7 @@ const Clients: React.FC = () => {
         <>
           {/* Pipeline selector */}
           <div className="mb-4 flex justify-between items-center">
-            <div className="flex items-center">
+            <div className="flex items-center flex-wrap gap-2">
               <label htmlFor="pipeline-select" className="mr-2 text-sm font-medium">
                 Pipeline:
               </label>
@@ -598,25 +598,98 @@ const Clients: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="ml-2"
                 onClick={() => setCreatePipelineDialog(true)}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 New Pipeline
               </Button>
               
-              {selectedPipelineId && !pipelines.find(p => p.id === selectedPipelineId)?.isDefault && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="ml-2"
-                  onClick={() => setDefaultPipelineMutation.mutate(selectedPipelineId)}
-                  disabled={setDefaultPipelineMutation.isPending}
-                >
-                  Set as Default
-                </Button>
+              {selectedPipelineId && (
+                <>
+                  {!pipelines.find(p => p.id === selectedPipelineId)?.isDefault && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDefaultPipelineMutation.mutate(selectedPipelineId)}
+                      disabled={setDefaultPipelineMutation.isPending}
+                    >
+                      Set as Default
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      // Show confirmation dialog before deleting the pipeline
+                      if (window.confirm(`Are you sure you want to delete the "${pipelines.find(p => p.id === selectedPipelineId)?.name}" pipeline?`)) {
+                        // Implement the delete pipeline mutation
+                        apiRequest('DELETE', `/api/pipelines/${selectedPipelineId}`)
+                          .then(() => {
+                            queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+                            toast({
+                              title: "Success",
+                              description: "Pipeline deleted successfully",
+                            });
+                            // Select a different pipeline
+                            const otherPipeline = pipelines.find(p => p.id !== selectedPipelineId);
+                            if (otherPipeline) {
+                              setSelectedPipelineId(otherPipeline.id);
+                            } else {
+                              setSelectedPipelineId(null);
+                            }
+                          })
+                          .catch(error => {
+                            toast({
+                              title: "Error",
+                              description: "Failed to delete pipeline. Please try again.",
+                              variant: "destructive"
+                            });
+                            console.error("Error deleting pipeline:", error);
+                          });
+                      }
+                    }}
+                  >
+                    Delete Pipeline
+                  </Button>
+                </>
               )}
             </div>
+            
+            {/* New Lane Button */}
+            {selectedPipelineId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Prompt for new lane name
+                  const newLaneName = window.prompt("Enter a name for the new lane:");
+                  if (newLaneName?.trim()) {
+                    // Create the new lane
+                    apiRequest('POST', `/api/pipelines/${selectedPipelineId}/lanes`, { name: newLaneName.trim() })
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+                        toast({
+                          title: "Success",
+                          description: "New lane added successfully",
+                        });
+                      })
+                      .catch(error => {
+                        toast({
+                          title: "Error",
+                          description: "Failed to add new lane. Please try again.",
+                          variant: "destructive"
+                        });
+                        console.error("Error adding lane:", error);
+                      });
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Lane
+              </Button>
+            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -631,24 +704,67 @@ const Clients: React.FC = () => {
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center">
                     <h3 className="font-semibold text-gray-700 mr-1">{lane.title}</h3>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
-                      onClick={() => {
-                        if (selectedPipelineId) {
-                          setRenameLaneDialog({
-                            isOpen: true,
-                            pipelineId: selectedPipelineId,
-                            laneId: lane.id,
-                            currentName: lane.title
-                          });
-                          setNewLaneName(lane.title);
-                        }
-                      }}
-                    >
-                      <PencilLine className="h-3 w-3" />
-                    </Button>
+                    <div className="flex space-x-1">
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0 opacity-50 hover:opacity-100"
+                        onClick={() => {
+                          if (selectedPipelineId) {
+                            setRenameLaneDialog({
+                              isOpen: true,
+                              pipelineId: selectedPipelineId,
+                              laneId: lane.id,
+                              currentName: lane.title
+                            });
+                            setNewLaneName(lane.title);
+                          }
+                        }}
+                      >
+                        <PencilLine className="h-3 w-3" />
+                      </Button>
+                      
+                      {/* Delete Lane Button */}
+                      {selectedPipeline && selectedPipeline.lanes.length > 1 && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 w-6 p-0 opacity-50 hover:opacity-100 text-red-500 hover:text-red-700"
+                          onClick={() => {
+                            if (selectedPipelineId) {
+                              // Show confirmation dialog before deleting the lane
+                              if (window.confirm(`Are you sure you want to delete the "${lane.title}" lane? All clients in this lane will be moved to another lane.`)) {
+                                apiRequest('DELETE', `/api/pipelines/${selectedPipelineId}/lanes/${lane.id}`)
+                                  .then(() => {
+                                    queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+                                    queryClient.invalidateQueries({ queryKey: ['/api/leads/clients'] });
+                                    toast({
+                                      title: "Success",
+                                      description: "Lane deleted successfully",
+                                    });
+                                  })
+                                  .catch(error => {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to delete lane. Please try again.",
+                                      variant: "destructive"
+                                    });
+                                    console.error("Error deleting lane:", error);
+                                  });
+                              }
+                            }
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            <line x1="10" x2="10" y1="11" y2="17"></line>
+                            <line x1="14" x2="14" y1="11" y2="17"></line>
+                          </svg>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Badge variant="secondary" className="text-xs">
                     {lane.items.length}

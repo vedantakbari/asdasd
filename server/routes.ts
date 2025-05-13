@@ -55,12 +55,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Lead not found" });
       }
       
+      // Get the default pipeline for new clients
+      const defaultPipeline = await storage.getDefaultPipeline();
+      
       // Update the lead to mark it as a client and assign to the first kanban lane
-      const updatedLead = await storage.updateLead(id, {
+      const updateData: Partial<InsertLead> = {
         isClient: true,
         status: LeadStatus.CLIENT,
         kanbanLane: KanbanLane.NEW_CLIENT
-      });
+      };
+      
+      // If a default pipeline exists, assign it to the client
+      if (defaultPipeline) {
+        updateData.pipelineId = defaultPipeline.id;
+      }
+      
+      const updatedLead = await storage.updateLead(id, updateData);
       
       // Create activity for lead conversion
       if (updatedLead) {
@@ -1944,6 +1954,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedPipeline);
     } catch (error) {
       res.status(500).json({ message: "Failed to update pipeline lane" });
+    }
+  });
+  
+  // Add new lane to pipeline
+  app.post("/api/pipelines/:id/lanes", async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.id);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipeline ID format" });
+      }
+      
+      const { name } = req.body;
+      
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Lane name is required" });
+      }
+      
+      const pipeline = await storage.getPipeline(pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      // Generate a unique lane ID based on the name
+      const laneId = name.toLowerCase().replace(/\s+/g, '_');
+      
+      // Check if this lane ID already exists in the pipeline
+      if (pipeline.lanes.some(lane => lane.id === laneId)) {
+        return res.status(400).json({ message: "Lane with similar name already exists" });
+      }
+      
+      // Add the new lane to the pipeline
+      const newLane = { id: laneId, name };
+      const updatedLanes = [...pipeline.lanes, newLane];
+      
+      const updatedPipeline = await storage.updatePipeline(pipelineId, {
+        lanes: updatedLanes
+      });
+      
+      // Create activity for lane creation
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_lane_added",
+        description: `Lane "${name}" added to pipeline "${pipeline.name}"`
+      });
+      
+      res.json(updatedPipeline);
+    } catch (error) {
+      console.error("Error adding lane:", error);
+      res.status(500).json({ message: "Failed to add lane to pipeline" });
+    }
+  });
+  
+  // Delete lane from pipeline
+  app.delete("/api/pipelines/:id/lanes/:laneId", async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.id);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipeline ID format" });
+      }
+      
+      const laneId = req.params.laneId;
+      
+      const pipeline = await storage.getPipeline(pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      // Check if lane exists
+      const laneToDelete = pipeline.lanes.find(lane => lane.id === laneId);
+      if (!laneToDelete) {
+        return res.status(404).json({ message: "Lane not found in pipeline" });
+      }
+      
+      // Remove the lane from the pipeline
+      const updatedLanes = pipeline.lanes.filter(lane => lane.id !== laneId);
+      
+      // Ensure we're not removing all lanes
+      if (updatedLanes.length === 0) {
+        return res.status(400).json({ message: "Cannot delete the last lane in a pipeline" });
+      }
+      
+      const updatedPipeline = await storage.updatePipeline(pipelineId, {
+        lanes: updatedLanes
+      });
+      
+      // Also update any clients in this lane to move to the first available lane
+      if (updatedLanes.length > 0) {
+        const fallbackLaneId = updatedLanes[0].id;
+        
+        // Get all clients in this pipeline and lane
+        const leads = await storage.getLeads();
+        const clientsInLane = leads.filter(
+          lead => lead.isClient && lead.kanbanLane === laneId && lead.pipelineId === pipelineId
+        );
+        
+        // Move each client to the fallback lane
+        for (const client of clientsInLane) {
+          await storage.updateLead(client.id, { kanbanLane: fallbackLaneId });
+        }
+      }
+      
+      // Create activity for lane deletion
+      await storage.createActivity({
+        userId: 1,
+        activityType: "pipeline_lane_deleted",
+        description: `Lane "${laneToDelete.name}" deleted from pipeline "${pipeline.name}"`
+      });
+      
+      res.json(updatedPipeline);
+    } catch (error) {
+      console.error("Error deleting lane:", error);
+      res.status(500).json({ message: "Failed to delete lane from pipeline" });
     }
   });
   

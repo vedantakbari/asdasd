@@ -128,11 +128,7 @@ const LeadList: React.FC = () => {
   // Convert lead to client mutation
   const convertToClientMutation = useMutation({
     mutationFn: async (lead: Lead) => {
-      return apiRequest('PATCH', `/api/leads/${lead.id}`, { 
-        status: LeadStatus.CLIENT,
-        isClient: true,
-        kanbanLane: KanbanLane.NEW_CLIENT
-      });
+      return apiRequest('POST', `/api/leads/${lead.id}/convert-to-client`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
