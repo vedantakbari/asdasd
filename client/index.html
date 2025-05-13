@@ -3,11 +3,57 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>ServiceCRM - Free Customer Relationship Management</title>
+    <meta name="description" content="A free, powerful CRM platform for managing leads, clients, deals, and communications." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Provide a fallback style in case CSS fails to load -->
+    <style>
+      body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
+      #root { height: 100%; }
+      .fallback-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        text-align: center;
+        padding: 0 1rem;
+        background-color: white;
+      }
+      .fallback-title { color: #4a5568; margin-bottom: 0.5rem; }
+      .fallback-message { color: #718096; max-width: 500px; margin-bottom: 1.5rem; }
+      .fallback-button {
+        background-color: #4299e1;
+        color: white;
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-weight: 500;
+      }
+    </style>
   </head>
   <body>
+    <!-- Root container for React app -->
     <div id="root"></div>
+    
+    <!-- Fallback content if JS fails to load -->
+    <noscript>
+      <div class="fallback-container">
+        <h1 class="fallback-title">JavaScript Required</h1>
+        <p class="fallback-message">
+          This application requires JavaScript to function. Please enable JavaScript in your browser settings and reload the page.
+        </p>
+      </div>
+    </noscript>
+    
+    <!-- App entry point -->
     <script type="module" src="/src/main.tsx"></script>
-    <!-- This is a replit script which adds a banner on the top of the page when opened in development mode outside the replit environment -->
+    
+    <!-- Replit development banner -->
     <script type="text/javascript" src="https://replit.com/public/js/replit-dev-banner.js"></script>
   </body>
 </html>
