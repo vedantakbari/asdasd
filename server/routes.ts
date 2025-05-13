@@ -1006,6 +1006,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch recent activities" });
     }
   });
+  
+  // Get activities for a specific entity (e.g., lead, deal, customer)
+  app.get("/api/activities/entity/:type/:id", async (req, res) => {
+    try {
+      const { type, id } = req.params;
+      const entityId = parseInt(id);
+      
+      if (isNaN(entityId)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      // Get all activities and filter for the specific entity
+      const allActivities = await storage.getActivities();
+      const entityActivities = allActivities.filter(
+        activity => activity.entityType === type && activity.entityId === entityId
+      );
+      
+      // Sort by date descending
+      entityActivities.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      res.json(entityActivities);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch entity activities" });
+    }
+  });
 
   app.post("/api/activities", async (req, res) => {
     try {

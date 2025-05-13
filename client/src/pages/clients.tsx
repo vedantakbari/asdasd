@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Lead, KanbanLane, Pipeline } from '@shared/schema';
+import { Lead, KanbanLane, Pipeline, Activity as ActivityType } from '@shared/schema';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +38,8 @@ import {
   PencilLine,
   DollarSign,
   History,
-  Activity
+  Activity,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link, useLocation } from 'wouter';
@@ -55,6 +56,68 @@ interface DetailModalState {
   isOpen: boolean;
   client: Lead | null;
 }
+
+// Activity History Component
+const ActivityHistory = ({ clientId }: { clientId: number }) => {
+  // Fetch activities related to this client
+  const { data: activities = [], isLoading } = useQuery<ActivityType[]>({
+    queryKey: ['/api/activities', clientId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/activities/entity/lead/${clientId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch activities');
+      }
+      return await response.json();
+    },
+    // If the API doesn't exist yet, just return empty array
+    onError: () => {
+      return [];
+    }
+  });
+
+  if (isLoading) {
+    return <div className="py-2 text-sm text-gray-500">Loading activity history...</div>;
+  }
+
+  if (activities.length === 0) {
+    return null; // Don't render anything if no activities
+  }
+
+  // Activity icon mapping
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'email_sent':
+        return <Mail className="h-4 w-4 text-blue-500" />;
+      case 'note_added':
+        return <MessageSquare className="h-4 w-4 text-green-500" />;
+      case 'task_completed': 
+        return <Activity className="h-4 w-4 text-purple-500" />;
+      default:
+        return <History className="h-4 w-4 text-gray-500" />;
+    }
+  };
+  
+  return (
+    <>
+      {activities.map((activity, index) => (
+        <div key={index} className="relative">
+          <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-indigo-400"></div>
+          <div className="flex items-start">
+            <div className="mr-2 mt-0.5">
+              {getActivityIcon(activity.activityType)}
+            </div>
+            <div>
+              <p className="text-sm font-medium">{activity.description}</p>
+              <p className="text-xs text-gray-500">
+                {format(new Date(activity.createdAt), 'MMMM d, yyyy h:mm a')}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+};
 
 const Clients: React.FC = () => {
   const [filter, setFilter] = useState<string | null>(null);
@@ -321,9 +384,37 @@ const Clients: React.FC = () => {
               <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                 <Link href={`/leads/${client.id}/edit`}>Edit Client</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
-                <CalendarPlus className="h-4 w-4 mr-2" />
-                Schedule Appointment
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation();
+                if (client.email) {
+                  window.location.href = `mailto:${client.email}`;
+                  
+                  // Log this email activity
+                  const activity = {
+                    userId: 1,
+                    activityType: "email_sent",
+                    description: `Email sent to ${client.name}`,
+                    entityType: "lead",
+                    entityId: client.id
+                  };
+                  
+                  apiRequest("POST", "/api/activities", activity)
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                    })
+                    .catch(error => {
+                      console.error("Failed to log email activity:", error);
+                    });
+                } else {
+                  toast({
+                    title: "Error",
+                    description: "No email address available for this client",
+                    variant: "destructive"
+                  });
+                }
+              }}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email Client
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -454,7 +545,9 @@ const Clients: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Would normally fetch activities related to this client */}
+                {/* Activity history component */}
+                <ActivityHistory clientId={client.id} />
+                
                 <div className="relative">
                   <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-gray-400"></div>
                   <p className="text-sm font-medium">Client converted from lead</p>
