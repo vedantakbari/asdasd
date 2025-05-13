@@ -1803,6 +1803,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(status);
   });
   
+  // Add a detailed endpoint for troubleshooting Google OAuth issues
+  app.get("/api/google/redirect-uri-debug", (req, res) => {
+    // Return details about the current redirect URI configuration
+    // This is useful for debugging OAuth issues
+    
+    // Get the current domain from the request
+    const protocol = req.secure || (req.headers['x-forwarded-proto'] === 'https') ? 'https' : 'http';
+    const domain = req.headers.host || '';
+    const currentUrl = `${protocol}://${domain}`;
+    
+    // Get all the possible redirect URIs that could work
+    const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
+    
+    // Create the expected callback URL based on the current request
+    const expectedCallbackUrl = `${currentUrl}/api/auth/google/callback`;
+    
+    // Get the configured redirect URI
+    const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI || '';
+    
+    // Check if the current callback URL is in the list of possible URIs
+    const currentCallbackInPossibleList = allPossibleURIs.includes(expectedCallbackUrl);
+    
+    // Get Replit environment information for debugging
+    const replitInfo = {
+      REPL_ID: process.env.REPL_ID || null,
+      REPL_SLUG: process.env.REPL_SLUG || null,
+      REPL_OWNER: process.env.REPL_OWNER || null
+    };
+    
+    // The actual redirect URI being used (redacted for security)
+    let actualRedirectUri = configuredCallbackUrl;
+    if (actualRedirectUri) {
+      // Show first and last few characters, mask the middle for security
+      const firstPart = actualRedirectUri.substring(0, 20);
+      const lastPart = actualRedirectUri.substring(actualRedirectUri.length - 20);
+      actualRedirectUri = `${firstPart}...${lastPart}`;
+    }
+    
+    res.json({
+      currentDomain: domain,
+      currentUrl,
+      expectedCallbackUrl,
+      actualRedirectUri,
+      usingExpectedCallback: expectedCallbackUrl === configuredCallbackUrl,
+      allPossibleRedirectURIs: allPossibleURIs,
+      possibleURICount: allPossibleURIs.length,
+      currentCallbackInPossibleList,
+      replitInfo,
+      recommendation: 'If you are having OAuth issues, make sure all the possible redirect URIs are added to your Google Cloud Console OAuth client configuration.'
+    });
+  });
+  
   app.get("/api/email/accounts", async (req, res) => {
     try {
       // In a real app with authentication, you'd use req.user.id

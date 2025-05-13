@@ -297,28 +297,107 @@ const Settings: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="mt-4">
+                        
+                        <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+                          <div className="flex">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm text-green-700">
+                                <strong>Pro Tip:</strong> After adding all redirect URIs, get a new OAuth client ID and client secret from Google. This will ensure all URIs are properly registered.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-4 space-y-3">
                           <Button 
                             variant="outline" 
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50 w-full"
                             onClick={async () => {
                               try {
-                                const response = await fetch('/api/auth/google/config');
+                                const response = await fetch('/api/google/redirect-uri-debug');
                                 const data = await response.json();
                                 
-                                // Format the redirect URIs as a list
-                                const redirectUris = data.allPossibleRedirectURIs.map(uri => 
-                                  `• ${uri}`
-                                ).join('\n');
-                                
-                                alert(`Google OAuth Configuration Details\n\nExpected callback URL: ${data.expectedCallbackUrl}\n\nConfigured callback URL: ${data.configuredCallbackUrl}\n\nAll possible redirect URIs to add to Google Cloud Console:\n${redirectUris}`);
+                                setIsDialogOpen(true);
+                                setDialogContent({
+                                  title: "Google OAuth Debug Information",
+                                  message: `
+                                    Current domain: ${data.currentDomain}
+                                    
+                                    Expected callback URL: ${data.expectedCallbackUrl}
+                                    
+                                    Current callback URL (from env): ${data.actualRedirectUri}
+                                    
+                                    Using expected URL: ${data.usingExpectedCallback ? "Yes ✓" : "No ✗"}
+                                    
+                                    Found ${data.possibleURICount} possible redirect URIs.
+                                    
+                                    ${data.recommendation}
+                                  `,
+                                  actions: [
+                                    {
+                                      label: "Show All URIs",
+                                      onClick: () => {
+                                        // Format the redirect URIs as a list
+                                        const redirectUris = data.allPossibleRedirectURIs.join('\n');
+                                        
+                                        navigator.clipboard.writeText(redirectUris)
+                                          .then(() => {
+                                            alert("All possible redirect URIs have been copied to your clipboard. Add ALL of these to your Google Cloud Console OAuth configuration.");
+                                          })
+                                          .catch(err => {
+                                            console.error('Could not copy text: ', err);
+                                            alert("All possible redirect URIs:\n\n" + redirectUris);
+                                          });
+                                      }
+                                    },
+                                    {
+                                      label: "Close",
+                                      onClick: () => setIsDialogOpen(false)
+                                    }
+                                  ]
+                                });
                               } catch (error) {
                                 console.error('Failed to check Google config:', error);
                                 alert('Error checking Google configuration');
                               }
                             }}
                           >
-                            Show All Possible Redirect URIs
+                            Debug Google OAuth Configuration
+                          </Button>
+                          
+                          <Button 
+                            variant="outline" 
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50 w-full"
+                            onClick={async () => {
+                              const confirmReset = window.confirm("Are you sure you want to reset all Gmail connections? This will remove all connected accounts.");
+                              
+                              if (confirmReset) {
+                                try {
+                                  const response = await fetch('/api/email/accounts');
+                                  const accounts = await response.json();
+                                  
+                                  // Delete all Gmail accounts
+                                  for (const account of accounts) {
+                                    if (account.provider === 'gmail') {
+                                      await fetch(`/api/email/accounts/${account.id}`, {
+                                        method: 'DELETE'
+                                      });
+                                    }
+                                  }
+                                  
+                                  alert("All Gmail connections have been reset. You can now try connecting again with your updated Google OAuth credentials.");
+                                } catch (error) {
+                                  console.error('Failed to reset Gmail connections:', error);
+                                  alert('Error resetting Gmail connections');
+                                }
+                              }
+                            }}
+                          >
+                            Reset Gmail Connections
                           </Button>
                         </div>
                       </div>
