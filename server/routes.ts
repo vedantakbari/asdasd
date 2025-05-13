@@ -1483,7 +1483,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // The currently configured callback URL
       const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI;
       
-      // Get all possible redirect URIs
+      // Get only the essential redirect URIs (focused list to add to Google Cloud Console)
+      const essentialRedirectURIs = googleService.getEssentialRedirectURIs();
+      
+      // Get all possible redirect URIs for advanced troubleshooting
       const allPossibleRedirectURIs = googleService.getAllPossibleRedirectURIs();
       
       // Check if the current domain's callback URL is in the list of possible URIs
@@ -1505,7 +1508,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         configuredCallbackUrl,
         mismatch: expectedCallbackUrl !== configuredCallbackUrl,
         currentCallbackInPossibleList,
+        essentialRedirectURIs, // Focused list of URIs to add to Google Cloud Console
+        essentialURICount: essentialRedirectURIs.length,
         allPossibleRedirectURIs,
+        totalURICount: allPossibleRedirectURIs.length,
         replitInfo,
         currentRequestInfo: {
           origin,
@@ -1518,7 +1524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             referer: req.headers.referer
           }
         },
-        recommendation: `Please add the following redirect URIs to your Google Cloud Console OAuth configuration: ${allPossibleRedirectURIs.join(', ')}`
+        recommendation: `IMPORTANT: Add ONLY these ${essentialRedirectURIs.length} Essential Redirect URIs to your Google Cloud Console OAuth configuration:`
       });
     } catch (error) {
       console.error("Error checking Google config:", error);
@@ -1868,7 +1874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUrl = `${protocol}://${domain}`;
       
       // Get only the essential redirect URIs that must be added to Google Cloud Console
-      const essentialURIs = googleService.getEssentialRedirectURIs();
+      const essentialRedirectURIs = googleService.getEssentialRedirectURIs();
       
       // Get all the possible redirect URIs that could work (for advanced troubleshooting)
       const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
@@ -1900,16 +1906,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Select the most important redirect URIs to show to the user
       // These are URIs that cover different domain patterns
-      const essentialRedirectURIs = [];
+      const priorityRedirectURIs = [];
       
       // Include the current domain's redirect URI first
       if (expectedCallbackUrl) {
-        essentialRedirectURIs.push(expectedCallbackUrl);
+        priorityRedirectURIs.push(expectedCallbackUrl);
       }
       
       // Include the configured URI if it's not the same as the expected one
       if (configuredCallbackUrl && configuredCallbackUrl !== expectedCallbackUrl) {
-        essentialRedirectURIs.push(configuredCallbackUrl);
+        priorityRedirectURIs.push(configuredCallbackUrl);
       }
       
       // Include important domain patterns for Replit
