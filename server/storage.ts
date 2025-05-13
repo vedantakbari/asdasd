@@ -574,7 +574,11 @@ export class MemStorage implements IStorage {
   }
   
   // Email Account Methods
-  async getEmailAccounts(userId: number): Promise<EmailAccount[]> {
+  async getEmailAccounts(): Promise<EmailAccount[]> {
+    return Array.from(this.emailAccounts.values());
+  }
+  
+  async getEmailAccountsByUser(userId: string): Promise<EmailAccount[]> {
     const accounts: EmailAccount[] = [];
     
     for (const account of this.emailAccounts.values()) {
@@ -647,6 +651,76 @@ export class MemStorage implements IStorage {
     });
     
     return this.emailAccounts.delete(id);
+  }
+  
+  // Email Message Methods
+  async getEmailMessages(accountId: number, folder?: string): Promise<EmailMessage[]> {
+    const messages: EmailMessage[] = [];
+    
+    for (const message of this.emailMessages.values()) {
+      if (message.accountId === accountId && (!folder || message.folder === folder)) {
+        messages.push(message);
+      }
+    }
+    
+    // Sort messages by receivedDate or sentDate (most recent first)
+    return messages.sort((a, b) => {
+      const dateA = a.receivedDate || a.sentDate;
+      const dateB = b.receivedDate || b.sentDate;
+      return dateB.getTime() - dateA.getTime();
+    });
+  }
+  
+  async getEmailMessage(id: number): Promise<EmailMessage | undefined> {
+    return this.emailMessages.get(id);
+  }
+  
+  async saveEmailMessage(message: InsertEmailMessage): Promise<EmailMessage> {
+    const id = this.emailMessageId++;
+    
+    const newMessage: EmailMessage = {
+      id,
+      ...message,
+      createdAt: new Date()
+    };
+    
+    this.emailMessages.set(id, newMessage);
+    return newMessage;
+  }
+  
+  async updateEmailMessage(accountId: number, messageId: string, updateData: Partial<EmailMessage>): Promise<EmailMessage | undefined> {
+    // Find message by accountId and messageId
+    let targetMessage: EmailMessage | undefined;
+    let targetMessageId: number | undefined;
+    
+    for (const [id, message] of this.emailMessages.entries()) {
+      if (message.accountId === accountId && message.messageId === messageId) {
+        targetMessage = message;
+        targetMessageId = id;
+        break;
+      }
+    }
+    
+    if (!targetMessage || targetMessageId === undefined) {
+      return undefined;
+    }
+    
+    const updatedMessage: EmailMessage = {
+      ...targetMessage,
+      ...updateData
+    };
+    
+    this.emailMessages.set(targetMessageId, updatedMessage);
+    return updatedMessage;
+  }
+  
+  async deleteEmailMessage(id: number): Promise<boolean> {
+    if (!this.emailMessages.has(id)) {
+      return false;
+    }
+    
+    this.emailMessages.delete(id);
+    return true;
   }
 
   // Helper method to seed sample data for testing

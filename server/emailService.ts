@@ -1,188 +1,182 @@
 import nodemailer from 'nodemailer';
-import { storage } from './storage';
-import { type EmailAccount } from '@shared/schema';
+import { EmailAccount, EmailMessage } from '@shared/schema';
+import { IStorage } from './storage';
 
-interface EmailMessage {
-  from: string;
-  fromName?: string;
+interface EmailOptions {
   to: string;
-  toName?: string; 
   subject: string;
   text?: string;
   html?: string;
-  relatedLeadId?: number;
-  relatedCustomerId?: number;
 }
 
-/**
- * Email service for sending and managing emails
- */
+interface SendResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+interface SyncResult {
+  success: boolean;
+  newMessages: number;
+  error?: string;
+}
+
 export class EmailService {
-  // Store transporter cache to avoid recreating for each email
-  private transporters: Map<number, nodemailer.Transporter> = new Map();
+  private account: EmailAccount;
+  private transporter: nodemailer.Transporter;
   
-  /**
-   * Create a nodemailer transport for the given email account
-   */
-  private createTransport(account: EmailAccount): nodemailer.Transporter {
-    // Check if we already have a transporter for this account
-    if (this.transporters.has(account.id)) {
-      return this.transporters.get(account.id)!;
-    }
+  constructor(account: EmailAccount) {
+    this.account = account;
     
-    // Create a new transporter
-    const transport = nodemailer.createTransport({
+    // Create SMTP transporter
+    this.transporter = nodemailer.createTransport({
       host: account.smtpHost,
       port: account.smtpPort,
       secure: account.smtpPort === 465, // true for 465, false for other ports
       auth: {
         user: account.smtpUsername,
-        pass: account.smtpPassword,
+        pass: account.smtpPassword
       }
     });
-    
-    // Store in cache
-    this.transporters.set(account.id, transport);
-    
-    return transport;
   }
   
   /**
-   * Send an email using the specified account
+   * Test the email connection to verify credentials
    */
-  async sendEmail(accountId: number, message: EmailMessage): Promise<boolean> {
+  async testConnection(): Promise<boolean> {
     try {
-      const account = await storage.getEmailAccount(accountId);
-      
-      if (!account) {
-        console.error(`Email account with ID ${accountId} not found`);
-        return false;
-      }
-      
-      const transport = this.createTransport(account);
-      
-      // Build the email message
-      const mailOptions = {
-        from: message.fromName 
-          ? `"${message.fromName}" <${message.from || account.email}>`
-          : message.from || account.email,
-        to: message.toName
-          ? `"${message.toName}" <${message.to}>`
-          : message.to,
-        subject: message.subject,
-        text: message.text,
-        html: message.html
-      };
-      
-      // Send the email
-      const info = await transport.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
-      
-      // Save the sent email to storage
-      await storage.saveEmailMessage({
-        accountId,
-        from: message.from || account.email,
-        fromName: message.fromName || account.displayName,
-        to: message.to,
-        toName: message.toName,
-        subject: message.subject,
-        textBody: message.text,
-        htmlBody: message.html,
-        sentDate: new Date(),
-        read: true,
-        folder: 'sent',
-        messageId: info.messageId,
-        relatedLeadId: message.relatedLeadId,
-        relatedCustomerId: message.relatedCustomerId
-      });
-      
+      // Verify SMTP connection
+      await this.transporter.verify();
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
+      console.error("SMTP connection test failed:", error);
       return false;
     }
   }
   
   /**
-   * Get emails for a specific account and folder
+   * Send an email through the configured account
    */
-  async getEmails(accountId: number, folder: string = 'inbox'): Promise<any[]> {
+  async sendEmail(options: EmailOptions): Promise<SendResult> {
     try {
-      const account = await storage.getEmailAccount(accountId);
+      const mailOptions = {
+        from: this.account.displayName
+          ? `"${this.account.displayName}" <${this.account.email}>`
+          : this.account.email,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html
+      };
       
-      if (!account) {
-        console.error(`Email account with ID ${accountId} not found`);
-        return [];
-      }
+      const info = await this.transporter.sendMail(mailOptions);
       
-      // For now, get emails from storage (simulated)
-      // In a real implementation, we would fetch emails from the IMAP server
-      const emails = await storage.getEmailMessages(accountId, folder);
-      
-      // If no emails in storage, generate some simulated ones for demonstration
-      if (emails.length === 0 && folder === 'inbox') {
-        return this.generateSimulatedEmails(account, folder);
-      }
-      
-      return emails;
+      return {
+        success: true,
+        messageId: info.messageId
+      };
     } catch (error) {
-      console.error(`Error fetching emails for account ${accountId}:`, error);
-      return [];
+      console.error("Error sending email:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to send email"
+      };
     }
   }
   
   /**
-   * Generate simulated emails for demonstration
-   * In a real implementation, this would be replaced with actual email fetching
+   * Synchronize emails from the IMAP server
+   * This is a placeholder implementation since we're not implementing full IMAP
+   * functionality in this version.
    */
-  private generateSimulatedEmails(account: EmailAccount, folder: string): any[] {
-    if (folder !== 'inbox') {
-      return [];
-    }
+  async syncMessages(storage: IStorage): Promise<SyncResult> {
+    // In a real implementation, we would:
+    // 1. Connect to the IMAP server
+    // 2. Fetch new messages since the last sync
+    // 3. Save those messages to the database
     
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    // For our example CRM, we'll create a few sample messages
+    // for testing purposes if none exist
     
-    const sampleEmails = [
-      {
-        accountId: account.id,
-        from: 'client1@example.com',
-        fromName: 'Potential Client',
-        to: account.email,
-        toName: account.displayName,
-        subject: 'Interested in Your Services',
-        textBody: 'Hello,\n\nI came across your company and am interested in learning more about your services. Can you please provide some information?\n\nThank you,\nPotential Client',
-        sentDate: oneDayAgo,
-        receivedDate: oneDayAgo,
-        read: false,
-        folder: 'inbox',
-        messageId: `demo-${Date.now()}-1`
-      },
-      {
-        accountId: account.id,
-        from: 'supplier@example.com',
-        fromName: 'Supplier Inc.',
-        to: account.email,
-        toName: account.displayName,
-        subject: 'Invoice #12345',
-        textBody: 'Please find attached your monthly invoice.\n\nRegards,\nSupplier Inc.',
-        sentDate: twoDaysAgo,
-        receivedDate: twoDaysAgo,
-        read: true,
-        folder: 'inbox',
-        messageId: `demo-${Date.now()}-2`
+    try {
+      // Check if we already have messages for this account
+      const existingMessages = await storage.getEmailMessages(this.account.id);
+      
+      // If we already have messages, don't add more sample ones
+      if (existingMessages.length > 0) {
+        return {
+          success: true,
+          newMessages: 0
+        };
       }
-    ];
-    
-    // Save these to storage so they persist
-    sampleEmails.forEach(async (email) => {
-      await storage.saveEmailMessage(email);
-    });
-    
-    return sampleEmails;
+      
+      // For demonstration, generate a few sample emails
+      const sampleEmails = [
+        {
+          accountId: this.account.id,
+          from: 'client@example.com',
+          fromName: 'Potential Client',
+          to: this.account.email,
+          subject: 'Inquiry about your services',
+          textBody: 'Hello, I\'m interested in learning more about your services. Can we schedule a call?',
+          sentDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          receivedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 5000), // 5 seconds later
+          read: false,
+          folder: 'inbox',
+          messageId: `sample-1-${Date.now()}@example.com`
+        },
+        {
+          accountId: this.account.id,
+          from: this.account.email,
+          fromName: this.account.displayName || undefined,
+          to: 'client@example.com',
+          subject: 'Re: Inquiry about your services',
+          textBody: 'Thank you for your interest! I\'d be happy to schedule a call. How does tomorrow at 2pm sound?',
+          sentDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+          read: true,
+          folder: 'sent',
+          messageId: `sample-2-${Date.now()}@example.com`
+        },
+        {
+          accountId: this.account.id,
+          from: 'vendor@example.com',
+          fromName: 'Vendor Partner',
+          to: this.account.email,
+          subject: 'Partnership Opportunity',
+          textBody: 'We have a new business opportunity that might interest you. Let\'s discuss!',
+          sentDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+          receivedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 8000), // 8 seconds later
+          read: false,
+          folder: 'inbox',
+          messageId: `sample-3-${Date.now()}@example.com`
+        }
+      ];
+      
+      // Save the sample emails
+      for (const email of sampleEmails) {
+        await storage.saveEmailMessage(email);
+      }
+      
+      return {
+        success: true,
+        newMessages: sampleEmails.length
+      };
+    } catch (error) {
+      console.error("Error syncing messages:", error);
+      return {
+        success: false,
+        newMessages: 0,
+        error: error.message || "Failed to sync messages"
+      };
+    }
   }
+  
+  /**
+   * In a full implementation, we would add methods to:
+   * - Fetch specific folders (inbox, sent, draft, etc.)
+   * - Mark messages as read/unread
+   * - Move messages between folders
+   * - Delete messages
+   * - Add attachments
+   */
 }
-
-// Singleton instance
-export const emailService = new EmailService();
