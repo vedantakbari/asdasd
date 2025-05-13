@@ -26,13 +26,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      console.log("Looking for user with ID:", userId);
+      
+      let user = await storage.getUser(userId);
+      
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        console.log("User not found in storage, creating new user");
+        // Create user if not exists
+        user = await storage.upsertUser({
+          id: userId,
+          email: req.user.claims.email || null,
+          firstName: req.user.claims.first_name || null,
+          lastName: req.user.claims.last_name || null,
+          profileImageUrl: req.user.claims.profile_image_url || null,
+          role: "user"
+        });
+        console.log("Created new user:", user);
+      } else {
+        console.log("User found:", user);
       }
+      
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      console.error("Error fetching/creating user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
