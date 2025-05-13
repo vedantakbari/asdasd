@@ -7,7 +7,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check route but only respond when requesting /api/health
+// Add health check routes for both root and API endpoint
+app.get("/", (_req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
@@ -83,7 +87,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
         }
         
         try {
-          res.sendFile("index.html", { root: "./public" });
+          res.sendFile("index.html", { root: "./dist/public" });
         } catch (err) {
           console.error("Error serving fallback index.html:", err);
           res.status(200).send(`
