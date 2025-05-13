@@ -460,11 +460,28 @@ const Inbox: React.FC = () => {
             <Mail size={48} className="mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">No Email Accounts Connected</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Connect your email account to see your messages here.
+              Each user of the CRM needs to connect their personal Gmail account to send and receive emails.
             </p>
-            <Button onClick={() => setIsAddEmailAccountOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Email Account
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-md mb-4 text-left max-w-md">
+              <h4 className="text-blue-800 font-medium mb-2">For CRM Users:</h4>
+              <ol className="text-sm text-blue-700 list-decimal ml-5 space-y-1">
+                <li>Click the "Connect Gmail Account" button below</li>
+                <li>Sign in with your personal Gmail account</li>
+                <li>Accept the requested permissions</li>
+                <li>Your Gmail account will be used for sending client emails</li>
+              </ol>
+            </div>
+            <Button 
+              onClick={() => setIsAddEmailAccountOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <svg viewBox="0 0 48 48" width="20" height="20" className="mr-2">
+                <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+                <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+                <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+                <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+              </svg>
+              Connect Gmail Account
             </Button>
           </div>
         </div>
@@ -519,10 +536,29 @@ const Inbox: React.FC = () => {
       return (
         <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8">
           <Mail size={48} className="mb-4 opacity-20" />
-          <p className="mb-4">Connect an email account to get started</p>
-          <Button onClick={() => setIsAddEmailAccountOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Email Account
+          <h3 className="text-lg font-medium mb-2 text-gray-700">No Email Accounts Connected</h3>
+          <p className="mb-4 text-center max-w-md">
+            Each CRM user needs to connect their personal Gmail account to send and receive emails through the platform
+          </p>
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-md mb-4 text-left max-w-md">
+            <h4 className="text-blue-800 font-medium mb-2 text-sm">Quick Instructions:</h4>
+            <ol className="text-sm text-blue-700 list-decimal ml-5 space-y-1">
+              <li>Click the "Connect Gmail" button below</li>
+              <li>Follow the Google authentication steps</li>
+              <li>Grant permission to access your email</li>
+            </ol>
+          </div>
+          <Button 
+            onClick={() => setIsAddEmailAccountOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <svg viewBox="0 0 48 48" width="20" height="20" className="mr-2">
+              <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+              <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+              <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+              <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+            </svg>
+            Connect Gmail
           </Button>
         </div>
       );
@@ -696,60 +732,79 @@ const Inbox: React.FC = () => {
             </div>
             
             {addEmailData.provider === 'gmail' ? (
-              <div className="col-span-4 p-4 bg-gray-50 rounded-md">
-                <p className="text-sm mb-2">
-                  <Mail className="inline-block mr-2 h-4 w-4 text-gray-500" />
-                  You'll be redirected to Google to authorize access to your Gmail account
-                </p>
-                <p className="text-xs text-gray-500 mb-4">
-                  This app requires limited access to read and send emails on your behalf. You can revoke access at any time.
-                </p>
-                <Button 
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white" 
-                  disabled={googleCredentialsStatus && !googleCredentialsStatus.isConfigured}
-                  onClick={() => {
-                    // Check if Google credentials are configured
-                    if (googleCredentialsStatus && !googleCredentialsStatus.isConfigured) {
-                      toast({
-                        title: 'Google API Credentials Required',
-                        description: 'To connect Gmail, you need to provide Google API credentials.',
-                        variant: 'destructive'
-                      });
+              <div className="col-span-4 space-y-4">
+                <div className="p-4 bg-gray-50 rounded-md">
+                  <p className="text-sm mb-2">
+                    <Mail className="inline-block mr-2 h-4 w-4 text-gray-500" />
+                    You'll be redirected to Google to authorize access to your Gmail account
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                    This app requires limited access to read and send emails on your behalf. You can revoke access at any time.
+                  </p>
+                  <Button 
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white" 
+                    disabled={googleCredentialsStatus && !googleCredentialsStatus.isConfigured}
+                    onClick={() => {
+                      // Check if Google credentials are configured
+                      if (googleCredentialsStatus && !googleCredentialsStatus.isConfigured) {
+                        toast({
+                          title: 'Google API Credentials Required',
+                          description: 'To connect Gmail, you need to provide Google API credentials.',
+                          variant: 'destructive'
+                        });
+                        
+                        // Ask for Google credentials
+                        toast({
+                          title: 'Setup Required',
+                          description: 'Please provide GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables.',
+                          variant: 'destructive'
+                        });
+                        
+                        return;
+                      }
                       
-                      // Ask for Google credentials
-                      toast({
-                        title: 'Setup Required',
-                        description: 'Please provide GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables.',
-                        variant: 'destructive'
-                      });
+                      // Store a flag in sessionStorage to indicate OAuth is in progress
+                      sessionStorage.setItem('googleOAuthInProgress', 'true');
                       
-                      return;
-                    }
-                    
-                    // Store a flag in sessionStorage to indicate OAuth is in progress
-                    sessionStorage.setItem('googleOAuthInProgress', 'true');
-                    
-                    // Submit the form to initiate OAuth
-                    addEmailAccountMutation.mutate({ 
-                      provider: 'gmail', 
-                      email: 'oauth@gmail.com' // Placeholder, will be replaced with actual email after auth
-                    });
-                  }}
-                >
-                  <svg 
-                    className="mr-2 h-4 w-4" 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    viewBox="0 0 48 48"
-                    width="16"
-                    height="16"
+                      // Submit the form to initiate OAuth
+                      addEmailAccountMutation.mutate({ 
+                        provider: 'gmail', 
+                        email: 'oauth@gmail.com' // Placeholder, will be replaced with actual email after auth
+                      });
+                    }}
                   >
-                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  </svg>
-                  Connect with Gmail
-                </Button>
+                    <svg 
+                      className="mr-2 h-4 w-4" 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 48 48"
+                      width="16"
+                      height="16"
+                    >
+                      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                    </svg>
+                    Connect with Gmail
+                  </Button>
+                </div>
+                
+                <div className="p-4 bg-blue-50 rounded-md border border-blue-100">
+                  <h4 className="font-medium text-blue-800 mb-2">Instructions for Gmail Users</h4>
+                  <p className="text-sm text-blue-700 mb-2">
+                    For each user of the CRM who needs to connect their Gmail account:
+                  </p>
+                  <ol className="text-sm text-blue-700 space-y-1 ml-5 list-decimal">
+                    <li>Click the "Connect with Gmail" button above</li>
+                    <li>Sign in with your personal Gmail account when prompted</li>
+                    <li>Review and accept the permissions</li>
+                    <li>Your personal email will now appear in the account list</li>
+                    <li>Each CRM user should connect their own Gmail account this way</li>
+                  </ol>
+                  <div className="mt-2 text-xs text-blue-600">
+                    You can find these instructions again in the Email Settings tab
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-4 items-center gap-4">

@@ -25,6 +25,7 @@ const Settings: React.FC = () => {
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="team">Team Members</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            <TabsTrigger value="email">Email Settings</TabsTrigger>
           </TabsList>
           
           <TabsContent value="general">
@@ -224,6 +225,96 @@ const Settings: React.FC = () => {
                     </div>
                     <Button variant="outline">Connect</Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="email">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Settings</CardTitle>
+                <CardDescription>Configure your email accounts and manage your Gmail integration</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Connected Email Accounts Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Connected Email Accounts</h3>
+                  <Separator />
+                  
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+                    <h4 className="text-yellow-800 font-medium mb-2">Gmail Integration Instructions</h4>
+                    <p className="text-yellow-700 text-sm mb-2">
+                      To connect your Gmail account, follow these steps:
+                    </p>
+                    <ol className="text-yellow-700 text-sm space-y-2 ml-4 list-decimal">
+                      <li>Click on the "Connect Gmail Account" button in the Inbox tab</li>
+                      <li>You'll be redirected to Google's login page</li>
+                      <li>Sign in with your Gmail account and grant the requested permissions</li>
+                      <li>After successful authentication, you'll be redirected back to the CRM</li>
+                      <li>Your Gmail account will now appear in the Connected Accounts list</li>
+                    </ol>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Button className="flex items-center gap-2" onClick={() => window.location.href = '/inbox'}>
+                      <svg viewBox="0 0 48 48" width="24" height="24">
+                        <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+                        <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+                        <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24c0 3.55.85 6.91 2.34 9.88l7.35-5.7z"/>
+                        <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+                      </svg>
+                      Connect Gmail Account
+                    </Button>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Connect your Gmail account to send and receive emails directly from the CRM.
+                    </p>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Email Signature</h4>
+                    <Textarea 
+                      placeholder="Enter your email signature..." 
+                      className="min-h-[120px]"
+                      defaultValue="Your Name\nYour Position\nYour Company\nYour Contact Information"
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      This signature will be added to all emails sent from the CRM.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Email Sync Settings</h3>
+                  <Separator />
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="auto-bcc">Auto-BCC Myself</Label>
+                      <p className="text-sm text-muted-foreground">Automatically BCC yourself on all outgoing emails</p>
+                    </div>
+                    <Switch id="auto-bcc" defaultChecked={false} />
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="sync-frequency">Email Sync Frequency</Label>
+                      <p className="text-sm text-muted-foreground">How often to check for new emails</p>
+                    </div>
+                    <select 
+                      id="sync-frequency" 
+                      className="w-40 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="5min">Every 5 minutes</option>
+                      <option value="15min">Every 15 minutes</option>
+                      <option value="30min">Every 30 minutes</option>
+                      <option value="60min">Every hour</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end">
+                  <Button>Save Email Settings</Button>
                 </div>
               </CardContent>
             </Card>
