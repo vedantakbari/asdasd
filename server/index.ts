@@ -20,7 +20,7 @@ app.get("/api/health", (_req, res) => {
 
 // Add root health check that responds immediately for Cloud Run
 app.get("/", (req, res, next) => {
-  // If request accepts HTML, pass to the next handler for proper landing page
+  // If request accepts HTML, pass to the next handler 
   if (req.accepts('html')) {
     return next();
   }
@@ -69,6 +69,25 @@ app.use((req, res, next) => {
   
   // Serve static files from the public directory
   app.use(express.static('public'));
+  
+  // Root route for authenticated users, must be after auth setup
+  app.get("/", (req, res, next) => {
+    // If user is authenticated, serve the static dashboard
+    if (req.isAuthenticated()) {
+      return res.sendFile('static-dashboard.html', { root: './public' });
+    }
+    
+    // Otherwise show the landing page (let Vite handle it)
+    return next();
+  });
+  
+  // Add dashboard route handler
+  app.get("/dashboard", (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.redirect('/api/login');
+    }
+    return res.sendFile('static-dashboard.html', { root: './public' });
+  });
 
   const server = await registerRoutes(app);
 
@@ -96,12 +115,25 @@ app.use((req, res, next) => {
       // Serve static files - this should match the Vite build output path
       app.use(express.static("./dist/public"));
       
+      // Special handler for dashboard route in production
+      app.get("/dashboard", (req, res) => {
+        if (!req.isAuthenticated()) {
+          return res.redirect('/api/login');
+        }
+        return res.sendFile('static-dashboard.html', { root: './public' });
+      });
+      
       // Add fallback catch-all route to serve index.html for all non-API routes
       app.use("*", (req, res, next) => {
         console.log("[express] Serving route:", req.originalUrl);
         
         if (req.originalUrl.startsWith("/api")) {
           return next();
+        }
+        
+        // If user is authenticated on the homepage, serve the static dashboard
+        if (req.originalUrl === "/" && req.isAuthenticated()) {
+          return res.sendFile('static-dashboard.html', { root: './public' });
         }
         
         console.log("[express] Serving index.html for client-side routing");
