@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth, getSession } from "./replitAuth";
+import { setupAuth, getSession, isAuthenticated } from "./replitAuth";
 import passport from "passport";
 
 const app = express();
@@ -67,8 +67,16 @@ app.use((req, res, next) => {
   // Set up Replit Auth
   await setupAuth(app);
   
-  // Add root route handler to serve HTML landing page instead of plain "OK"
-  // This needs to be after auth setup since it uses req.isAuthenticated()
+  // Serve static files from the public directory
+  app.use(express.static('public'));
+  
+  // Add routes to serve HTML content
+  // Dashboard route for authenticated users
+  app.get("/dashboard", isAuthenticated, (req, res) => {
+    return res.sendFile('dashboard.html', { root: './public' });
+  });
+  
+  // Root route handler to serve HTML landing page or redirect to dashboard
   app.get("/", (req, res) => {
     // If user is authenticated, redirect them to the dashboard
     if (req.isAuthenticated()) {
