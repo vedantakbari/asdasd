@@ -335,7 +335,9 @@ const EmailSync: React.FC = () => {
                   <Label htmlFor="email" className="w-24">Email</Label>
                   {emailAccounts.length > 0 ? (
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{emailAccounts[0].email}</span>
+                      <span className="font-medium">
+                        {senderName ? `${senderName} <${emailAccounts[0].email}>` : emailAccounts[0].email}
+                      </span>
                       <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
                         verified
                       </Badge>
