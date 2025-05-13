@@ -2030,6 +2030,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Get Google credentials
+  app.get('/api/google/credentials', (req, res) => {
+    try {
+      // Only return non-sensitive portions of credentials or masked versions
+      // For security, we don't return the full client secret
+      const clientId = process.env.GOOGLE_CLIENT_ID || '';
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+      const redirectUri = process.env.GOOGLE_REDIRECT_URI || '';
+      
+      // Mask the client secret for security
+      const maskedClientSecret = clientSecret 
+        ? clientSecret.substring(0, 3) + '...' + clientSecret.substring(clientSecret.length - 3)
+        : '';
+      
+      res.json({
+        clientId,
+        clientSecret: maskedClientSecret,
+        redirectUri
+      });
+    } catch (error) {
+      console.error('Error retrieving Google credentials:', error);
+      res.status(500).json({ 
+        message: 'Error retrieving Google credentials'
+      });
+    }
+  });
+  
   // Update email sync settings
   app.post('/api/email/sync-settings', (req, res) => {
     try {

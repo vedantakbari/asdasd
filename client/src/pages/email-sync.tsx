@@ -45,13 +45,38 @@ const EmailSync: React.FC = () => {
   useEffect(() => {
     const checkCredentialsStatus = async () => {
       try {
+        // Check credentials status
         const response = await fetch('/api/google/credentials-status');
         if (response.ok) {
           const data = await response.json();
           setCredentialsStatus(data);
+          
+          // If credentials are configured, fetch the actual credential values to populate the form
+          if (data.isConfigured) {
+            try {
+              const credResponse = await fetch('/api/google/credentials');
+              if (credResponse.ok) {
+                const credData = await credResponse.json();
+                
+                if (credData) {
+                  setGoogleCredentials({
+                    clientId: credData.clientId || "",
+                    clientSecret: credData.clientSecret || "",
+                  });
+                }
+              }
+            } catch (credError) {
+              console.error('Error fetching Google credentials:', credError);
+            }
+          }
         }
       } catch (error) {
         console.error('Error checking credentials status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load credentials status. Please refresh the page.",
+          variant: "destructive"
+        });
       }
     };
     
@@ -69,7 +94,7 @@ const EmailSync: React.FC = () => {
     
     checkCredentialsStatus();
     loadEmailAccounts();
-  }, []);
+  }, [toast]);
   
   // Save Google credentials
   const saveGoogleCredentials = async () => {
@@ -483,61 +508,66 @@ const EmailSync: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Google API configuration */}
-          {!credentialsStatus.isConfigured && (
-            <Card className="border-amber-200 bg-amber-50/50">
-              <CardContent className="pt-6">
-                <div className="flex items-center mb-4">
-                  <h2 className="text-xl font-medium text-amber-800">Google API Configuration Required</h2>
-                </div>
-                
-                <div className="space-y-4">
+          {/* Google API configuration - Always displayed now */}
+          <Card className="border-amber-200 bg-amber-50/50 mb-6">
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <h2 className="text-xl font-medium text-amber-800">Google API Configuration</h2>
+                {credentialsStatus.isConfigured && (
+                  <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                    <Check className="w-3 h-3 mr-1" /> Configured
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="space-y-4">
+                {!credentialsStatus.isConfigured && (
                   <p className="text-amber-700">
                     Before you can connect your email account, you need to configure your Google API credentials.
                   </p>
-                
-                  <div className="grid gap-2">
-                    <Label htmlFor="clientId" className="text-amber-800">Client ID</Label>
-                    <Input 
-                      id="clientId" 
-                      value={googleCredentials.clientId} 
-                      onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
-                      placeholder="Enter your Google Client ID"
-                      className="border-amber-200"
-                    />
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label htmlFor="clientSecret" className="text-amber-800">Client Secret</Label>
-                    <Input 
-                      id="clientSecret" 
-                      value={googleCredentials.clientSecret} 
-                      onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
-                      placeholder="Enter your Google Client Secret"
-                      className="border-amber-200"
-                    />
-                  </div>
-                  
-                  <Button onClick={saveGoogleCredentials} className="bg-amber-600 hover:bg-amber-700">
-                    Save Credentials
-                  </Button>
-                  
-                  <div className="bg-white p-4 rounded-md border border-amber-200">
-                    <h3 className="font-medium text-amber-800 mb-2">How to get Google API credentials</h3>
-                    <ol className="list-decimal ml-5 text-sm space-y-1 text-amber-700">
-                      <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">Google Cloud Console</a></li>
-                      <li>Create a new project or select an existing one</li>
-                      <li>Go to "Credentials" and click "Create Credentials" &gt; "OAuth client ID"</li>
-                      <li>Select "Web application" as the application type</li>
-                      <li>Add "{window.location.origin}" as an authorized JavaScript origin</li>
-                      <li>Add "{window.location.origin}/api/auth/google/callback" as an authorized redirect URI</li>
-                      <li>Click "Create" and copy your Client ID and Client Secret</li>
-                    </ol>
-                  </div>
+                )}
+              
+                <div className="grid gap-2">
+                  <Label htmlFor="clientId" className="text-amber-800">Client ID</Label>
+                  <Input 
+                    id="clientId" 
+                    value={googleCredentials.clientId} 
+                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
+                    placeholder="Enter your Google Client ID"
+                    className="border-amber-200"
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                
+                <div className="grid gap-2">
+                  <Label htmlFor="clientSecret" className="text-amber-800">Client Secret</Label>
+                  <Input 
+                    id="clientSecret" 
+                    value={googleCredentials.clientSecret} 
+                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
+                    placeholder="Enter your Google Client Secret"
+                    className="border-amber-200"
+                  />
+                </div>
+                
+                <Button onClick={saveGoogleCredentials} className="bg-amber-600 hover:bg-amber-700">
+                  {credentialsStatus.isConfigured ? 'Update Credentials' : 'Save Credentials'}
+                </Button>
+                
+                <div className="bg-white p-4 rounded-md border border-amber-200">
+                  <h3 className="font-medium text-amber-800 mb-2">How to get Google API credentials</h3>
+                  <ol className="list-decimal ml-5 text-sm space-y-1 text-amber-700">
+                    <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">Google Cloud Console</a></li>
+                    <li>Create a new project or select an existing one</li>
+                    <li>Go to "Credentials" and click "Create Credentials" &gt; "OAuth client ID"</li>
+                    <li>Select "Web application" as the application type</li>
+                    <li>Add "{window.location.origin}" as an authorized JavaScript origin</li>
+                    <li>Add "{window.location.origin}/api/auth/google/callback" as an authorized redirect URI</li>
+                    <li>Click "Create" and copy your Client ID and Client Secret</li>
+                  </ol>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>
