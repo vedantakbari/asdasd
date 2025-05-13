@@ -2120,8 +2120,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // No connected account, proceed with new connection
+        // Create an auth client for Google OAuth
+        const authClient = googleService.createAuthClient();
+        
+        // Store email in state parameter for retrieval after OAuth
+        const stateData = JSON.stringify({
+          email,  // The email the user entered in the form
+          intent: 'email_connect',
+          timestamp: Date.now()
+        });
+        
+        // Encode state to safely pass through redirect
+        const encodedState = Buffer.from(stateData).toString('base64');
+        
+        // Generate OAuth URL with our state data
+        const authUrl = googleService.getAuthUrl(encodedState);
+        
+        console.log(`Starting Google OAuth for email: ${email}`);
+        
         return res.json({ 
-          redirectUrl: '/api/auth/google',
+          redirectUrl: authUrl,
           provider: 'gmail',
           needsAuth: true,
           message: "Redirecting to Google authentication"

@@ -341,21 +341,60 @@ const EmailSync: React.FC = () => {
                       </Badge>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={connectGmailAccount}
-                        disabled={isConnectingEmail || !credentialsStatus.isConfigured}
-                      >
-                        {isConnectingEmail ? 'Connecting...' : 'Connect email'}
-                      </Button>
-                      
-                      {!credentialsStatus.isConfigured && (
-                        <span className="text-amber-600 text-sm ml-2">
-                          Google API credentials required
-                        </span>
+                    <>
+                      {showEmailInput ? (
+                        <div className="flex items-end gap-2">
+                          <div>
+                            <Input
+                              id="newEmail"
+                              type="email"
+                              placeholder="your.email@gmail.com"
+                              value={newEmail}
+                              onChange={(e) => setNewEmail(e.target.value)}
+                              disabled={isConnectingEmail}
+                              className="w-60"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={connectGmailAccount}
+                              disabled={isConnectingEmail || !credentialsStatus.isConfigured || !newEmail.trim()}
+                            >
+                              {isConnectingEmail ? (
+                                <>Connecting<span className="animate-pulse">...</span></>
+                              ) : (
+                                'Connect'
+                              )}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => setShowEmailInput(false)}
+                              disabled={isConnectingEmail}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={() => setShowEmailInput(true)}
+                            disabled={!credentialsStatus.isConfigured}
+                          >
+                            Connect email
+                          </Button>
+                          
+                          {!credentialsStatus.isConfigured && (
+                            <span className="text-amber-600 text-sm ml-2">
+                              Google API credentials required
+                            </span>
+                          )}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
                 
