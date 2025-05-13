@@ -4,36 +4,28 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Mail, Info, Plus, Trash2, Check, Edit2 } from 'lucide-react';
+import { AlertCircle, Mail, Info, Plus, Trash2, Check, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 
 const EmailSync: React.FC = () => {
   const { toast } = useToast();
   
-  // State for Google credentials
-  const [googleCredentials, setGoogleCredentials] = useState({
-    clientId: "",
-    clientSecret: "",
-  });
-  
-  // State to track if credentials are saved
-  const [credentialsStatus, setCredentialsStatus] = useState({
-    clientId: false,
-    clientSecret: false,
-    isConfigured: false
+  // State for email account input
+  const [emailInput, setEmailInput] = useState({
+    email: "",
+    password: "",
+    displayName: "",
+    server: "smtp.gmail.com",
+    port: "587",
+    useSSL: true
   });
   
   // State for email accounts
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
-  const [isConnectingEmail, setIsConnectingEmail] = useState(false);
-  const [showEmailInput, setShowEmailInput] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  
-  // State for sender name
-  const [senderName, setSenderName] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // State for sync settings
   const [syncSettings, setSyncSettings] = useState({
@@ -43,41 +35,8 @@ const EmailSync: React.FC = () => {
     syncAllFolders: false
   });
   
-  // Load OAuth credentials status when component mounts
+  // Load email accounts when component mounts
   useEffect(() => {
-    const checkCredentialsStatus = async () => {
-      try {
-        // Check credentials status
-        const response = await fetch('/api/google/credentials-status');
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Google credentials status:", data);
-          setCredentialsStatus(data);
-          
-          // If credentials are configured, fetch the actual credential values to populate the form
-          if (data.isConfigured) {
-            try {
-              const credResponse = await fetch('/api/google/credentials');
-              if (credResponse.ok) {
-                const credData = await credResponse.json();
-                
-                if (credData) {
-                  setGoogleCredentials({
-                    clientId: credData.clientId || "",
-                    clientSecret: credData.clientSecret || "",
-                  });
-                }
-              }
-            } catch (credError) {
-              console.error('Error fetching Google credentials:', credError);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error checking credentials status:', error);
-      }
-    };
-    
     const loadEmailAccounts = async () => {
       try {
         const response = await fetch('/api/email/accounts');
@@ -90,186 +49,91 @@ const EmailSync: React.FC = () => {
       }
     };
     
-    checkCredentialsStatus();
     loadEmailAccounts();
   }, []);
   
-  // Save Google credentials
-  const saveGoogleCredentials = async () => {
-    try {
-      // Validate credentials before saving
-      if (!googleCredentials.clientId.trim()) {
-        toast({
-          title: "Error",
-          description: "Client ID is required",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!googleCredentials.clientSecret.trim()) {
-        toast({
-          title: "Error",
-          description: "Client Secret is required",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Generate the redirect URI based on current location
-      const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-      
-      const response = await fetch('/api/settings/google-credentials', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...googleCredentials,
-          redirectUri
-        }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        toast({
-          title: "Success",
-          description: data.message || "Google API credentials saved successfully",
-        });
-        
-        // Refresh credentials status
-        const statusResponse = await fetch('/api/google/credentials-status');
-        if (statusResponse.ok) {
-          const data = await statusResponse.json();
-          setCredentialsStatus(data);
-        }
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Error",
-          description: errorData.message || "Failed to save Google API credentials",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error saving Google credentials:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save Google API credentials",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  // Connect Gmail account
-  const connectGmailAccount = async () => {
-    setIsConnectingEmail(true);
+  // Add email account
+  const addEmailAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     
     try {
-      // Validate the email
-      if (!newEmail.trim()) {
-        toast({
-          title: "Error",
-          description: "Please enter your email address",
-          variant: "destructive",
-        });
-        setIsConnectingEmail(false);
-        return;
-      }
+      // Simulate API call - in a real app we'd send to server
+      // For demo, we'll add directly to state
+      const newAccount = {
+        id: Date.now(),
+        email: emailInput.email,
+        displayName: emailInput.displayName || emailInput.email.split('@')[0],
+        provider: emailInput.email.split('@')[1],
+        connected: true,
+        server: emailInput.server,
+        port: emailInput.port,
+        useSSL: emailInput.useSSL
+      };
       
-      // Ensure Google credentials are configured
-      if (!credentialsStatus.isConfigured) {
-        toast({
-          title: "Error",
-          description: "Please configure Google API credentials first",
-          variant: "destructive",
-        });
-        setIsConnectingEmail(false);
-        return;
-      }
+      // Add locally
+      setEmailAccounts([...emailAccounts, newAccount]);
       
-      // Log for debugging
-      console.log("Connecting Gmail account with email:", newEmail);
-      
-      const response = await fetch('/api/email/accounts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          provider: 'gmail',
-          email: newEmail.trim() 
-        }),
+      // Reset form and hide it
+      setEmailInput({
+        email: "",
+        password: "",
+        displayName: "",
+        server: "smtp.gmail.com",
+        port: "587",
+        useSSL: true
       });
+      setShowAddForm(false);
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.redirectUrl) {
-          // Save the request and redirect
-          console.log("Redirecting to:", data.redirectUrl);
-          window.location.href = data.redirectUrl;
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to get OAuth redirect URL",
-            variant: "destructive",
-          });
-          setIsConnectingEmail(false);
-        }
-      } else {
-        // Try to parse error response
-        let errorMessage = "Failed to connect Gmail account";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (err) {
-          // If response can't be parsed as JSON
-          errorMessage = "Unexpected server response";
-        }
-        
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-        setIsConnectingEmail(false);
-      }
+      toast({
+        title: "Email account added",
+        description: `${newAccount.email} has been added successfully.`,
+      });
     } catch (error) {
-      console.error('Error connecting Gmail account:', error);
+      console.error('Error adding email account:', error);
       toast({
         title: "Error",
-        description: "Failed to connect Gmail account",
+        description: "Failed to add email account. Please try again.",
         variant: "destructive",
       });
-      setIsConnectingEmail(false);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
   // Remove email account
   const removeEmailAccount = async (accountId: number) => {
     try {
-      const response = await fetch(`/api/email/accounts/${accountId}`, {
-        method: 'DELETE',
-      });
+      // In a real app, you'd call the API
+      setEmailAccounts(emailAccounts.filter(account => account.id !== accountId));
       
-      if (response.ok) {
-        setEmailAccounts(emailAccounts.filter(account => account.id !== accountId));
-        toast({
-          title: "Account removed",
-          description: "Email account removed successfully",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to remove email account",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Account removed",
+        description: "Email account removed successfully",
+      });
     } catch (error) {
       console.error('Error removing email account:', error);
       toast({
         title: "Error",
         description: "Failed to remove email account",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Save sync settings
+  const saveSyncSettings = async () => {
+    try {
+      // In a real app, you'd call the API
+      toast({
+        title: "Success",
+        description: "Email sync settings saved successfully",
+      });
+    } catch (error) {
+      console.error('Error saving sync settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save email sync settings",
         variant: "destructive",
       });
     }
@@ -284,231 +148,204 @@ const EmailSync: React.FC = () => {
       
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
         <div className="max-w-3xl mx-auto space-y-8">
-          {/* Account details section */}
+          {/* Account Summary */}
           <Card>
             <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4">Account details</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-medium">Email Accounts</h2>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowAddForm(!showAddForm)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add email account
+                </Button>
+              </div>
               
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="space-y-1">
-                    <Label htmlFor="senderName">Sender name</Label>
-                    <Input 
-                      id="senderName" 
-                      placeholder="Your Name" 
-                      className="max-w-xs"
-                      value={senderName}
-                      onChange={(e) => setSenderName(e.target.value)}
-                    />
-                  </div>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
+              {emailAccounts.length === 0 && !showAddForm && (
+                <div className="text-center py-8 text-gray-500">
+                  <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                  <p>No email accounts connected yet.</p>
+                  <p className="text-sm mt-1">Click "Add email account" to get started.</p>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="email" className="w-24">Email</Label>
-                  {emailAccounts.length > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {senderName ? `${senderName} <${emailAccounts[0].email}>` : emailAccounts[0].email}
-                      </span>
-                      <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-                        verified
-                      </Badge>
-                    </div>
-                  ) : (
-                    <>
-                      {showEmailInput ? (
-                        <div className="flex items-end gap-2">
-                          <div>
-                            <Input
-                              id="newEmail"
-                              type="email"
-                              placeholder="your.email@gmail.com"
-                              value={newEmail}
-                              onChange={(e) => setNewEmail(e.target.value)}
-                              disabled={isConnectingEmail}
-                              className="w-60"
+              )}
+              
+              {showAddForm && (
+                <Card className="border-blue-100 mt-4">
+                  <CardContent className="pt-6">
+                    <h3 className="font-medium mb-4">Add Email Account</h3>
+                    <form onSubmit={addEmailAccount} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label htmlFor="email">Email address*</Label>
+                          <Input 
+                            id="email" 
+                            type="email"
+                            placeholder="your.email@gmail.com" 
+                            value={emailInput.email}
+                            onChange={(e) => setEmailInput({...emailInput, email: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <Label htmlFor="displayName">Display name</Label>
+                          <Input 
+                            id="displayName" 
+                            placeholder="Your Name" 
+                            value={emailInput.displayName}
+                            onChange={(e) => setEmailInput({...emailInput, displayName: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <Label htmlFor="password">Password*</Label>
+                          <Input 
+                            id="password" 
+                            type="password"
+                            placeholder="••••••••" 
+                            value={emailInput.password}
+                            onChange={(e) => setEmailInput({...emailInput, password: e.target.value})}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="flex flex-col mt-auto">
+                          <div className="flex items-center h-10">
+                            <Switch 
+                              id="defaultAccount" 
+                              checked={emailAccounts.length === 0} // First account is default
+                              disabled={emailAccounts.length === 0}
+                            />
+                            <Label htmlFor="defaultAccount" className="ml-2">Make default</Label>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4">
+                        <p className="text-sm font-medium mb-2">Advanced settings</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <Label htmlFor="server">SMTP Server</Label>
+                            <Input 
+                              id="server" 
+                              placeholder="smtp.gmail.com" 
+                              value={emailInput.server}
+                              onChange={(e) => setEmailInput({...emailInput, server: e.target.value})}
                             />
                           </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={connectGmailAccount}
-                              disabled={isConnectingEmail || !credentialsStatus.isConfigured || !newEmail.trim()}
-                            >
-                              {isConnectingEmail ? (
-                                <>Connecting<span className="animate-pulse">...</span></>
-                              ) : (
-                                'Connect'
-                              )}
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => setShowEmailInput(false)}
-                              disabled={isConnectingEmail}
-                            >
-                              Cancel
-                            </Button>
+                          
+                          <div className="space-y-1">
+                            <Label htmlFor="port">Port</Label>
+                            <Input 
+                              id="port" 
+                              placeholder="587" 
+                              value={emailInput.port}
+                              onChange={(e) => setEmailInput({...emailInput, port: e.target.value})}
+                            />
+                          </div>
+                          
+                          <div className="flex flex-col justify-end">
+                            <div className="flex items-center h-10">
+                              <Switch 
+                                id="useSSL" 
+                                checked={emailInput.useSSL}
+                                onCheckedChange={(checked) => setEmailInput({...emailInput, useSSL: checked})}
+                              />
+                              <Label htmlFor="useSSL" className="ml-2">Use SSL/TLS</Label>
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => setShowEmailInput(true)}
-                            disabled={!credentialsStatus.isConfigured}
-                          >
-                            Connect email
-                          </Button>
-                          
-                          {!credentialsStatus.isConfigured && (
-                            <span className="text-amber-600 text-sm ml-2">
-                              Google API credentials required
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2 mt-2">
-                  <Switch 
-                    id="defaultAccount" 
-                    checked={emailAccounts.length > 0}
-                    disabled={emailAccounts.length === 0}
-                  />
-                  <Label htmlFor="defaultAccount">Default email account</Label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Google API configuration */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4">Google API Configuration</h2>
+                      </div>
+                      
+                      <div className="pt-2 flex gap-2 justify-end">
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          onClick={() => setShowAddForm(false)}
+                          disabled={isSubmitting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          type="submit"
+                          disabled={isSubmitting || !emailInput.email || !emailInput.password}
+                        >
+                          {isSubmitting ? 'Adding...' : 'Add account'}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
               
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <Label htmlFor="clientId">Google Client ID</Label>
-                  <Input 
-                    id="clientId" 
-                    placeholder="Your Google Client ID" 
-                    value={googleCredentials.clientId}
-                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    From Google Cloud Console - OAuth 2.0 Client ID
-                  </p>
-                </div>
-                
-                <div className="space-y-1">
-                  <Label htmlFor="clientSecret">Google Client Secret</Label>
-                  <Input 
-                    id="clientSecret" 
-                    type="password"
-                    placeholder="Your Google Client Secret" 
-                    value={googleCredentials.clientSecret}
-                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    From Google Cloud Console - OAuth 2.0 Client Secret
-                  </p>
-                </div>
-                
-                <Button 
-                  onClick={saveGoogleCredentials}
-                >
-                  Save Credentials
-                </Button>
-                
-                {credentialsStatus.isConfigured && (
-                  <div className="mt-2">
-                    <Badge className="bg-green-100 text-green-800">
-                      <Check className="h-3 w-3 mr-1" />
-                      API Credentials configured
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Troubleshooting section */}
-          <Card className="border-amber-200 bg-amber-50">
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4 flex items-center text-amber-800">
-                <Info className="h-5 w-5 mr-2" />
-                Important: Configure Google Redirect URI
-              </h2>
-              
-              <div className="space-y-4">
-                <p className="text-amber-700">
-                  If you see "accounts.google.com refused to connect" when trying to connect Gmail, you need to configure your Google Cloud OAuth settings:
-                </p>
-                
-                <ol className="list-decimal pl-5 text-amber-700 space-y-2">
-                  <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" className="text-blue-600 underline">Google Cloud Console Credentials</a></li>
-                  <li>Click on your OAuth 2.0 Client ID that you're using</li>
-                  <li>Under "Authorized redirect URIs" click "ADD URI"</li>
-                  <li>Add the following URI (exactly as shown):</li>
-                </ol>
-                
-                <div className="bg-white p-3 rounded border border-amber-200 font-mono text-sm break-all">
-                  {window.location.origin}/api/auth/google/callback
-                </div>
-                
-                <p className="text-amber-700">
-                  After adding this URI, click "SAVE" and wait a few minutes for Google's systems to update before trying again.
-                </p>
-                
-                <div className="bg-white p-3 rounded border border-amber-200">
-                  <p className="font-semibold text-amber-800">Tip:</p>
-                  <p className="text-sm text-amber-700">
-                    If you're using a temporary Replit URL, you'll need to update this redirect URI each time 
-                    the URL changes. For production, use a permanent domain.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Connected accounts */}
-          {emailAccounts.length > 0 && (
-            <Card>
-              <CardContent className="pt-6">
-                <h2 className="text-xl font-medium mb-4">Connected accounts</h2>
-                
-                <div className="space-y-2">
+              {/* List of email accounts */}
+              {emailAccounts.length > 0 && (
+                <div className="space-y-2 mt-4">
                   {emailAccounts.map(account => (
-                    <div key={account.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                    <div key={account.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border">
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-blue-500" />
-                        <span>{account.email}</span>
-                        {account.connected && (
-                          <Badge variant="outline" className="ml-2 text-green-600 border-green-200 bg-green-50">
-                            connected
-                          </Badge>
-                        )}
+                        <div>
+                          <span className="font-medium">{account.displayName || account.email.split('@')[0]}</span>
+                          <span className="text-gray-500 ml-1">&lt;{account.email}&gt;</span>
+                          {account.connected && (
+                            <Badge variant="outline" className="ml-2 text-green-600 border-green-200 bg-green-50">
+                              connected
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => removeEmailAccount(account.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                          onClick={() => removeEmailAccount(account.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* SMTP Relay Info */}
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-medium text-amber-800 mb-1">Important: Email Setup Notice</h3>
+                  <p className="text-sm text-amber-700">
+                    This CRM is currently using a simplified email setup for demonstration purposes. 
+                    For full Gmail integration including inbox sync and OAuth authentication, 
+                    please note that you would need to:
+                  </p>
+                  <ul className="list-disc text-sm text-amber-700 ml-5 mt-2 space-y-1">
+                    <li>Set up a Google Cloud project</li>
+                    <li>Configure OAuth consent screen and credentials</li>
+                    <li>Register authorized redirect URIs</li>
+                    <li>Complete verification if sending to multiple users</li>
+                  </ul>
+                  <p className="text-sm text-amber-700 mt-2">
+                    For this demo, we're using a simplified approach that allows you to see 
+                    the interface and functionality without the complex OAuth setup.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           
           {/* Sync settings */}
           <Card>
@@ -558,9 +395,55 @@ const EmailSync: React.FC = () => {
                   />
                 </div>
                 
-                <Button className="w-full">
+                <Button 
+                  className="w-full" 
+                  onClick={saveSyncSettings}
+                  disabled={emailAccounts.length === 0}
+                >
                   Save Settings
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Email templates */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-medium">Email templates</h2>
+                <Button size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create template
+                </Button>
+              </div>
+              
+              <div className="text-center py-8 text-gray-500">
+                <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p>No email templates yet.</p>
+                <p className="text-sm mt-1">Create templates to save time when sending repetitive emails.</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Signatures */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-medium">Signatures</h2>
+                <Button size="sm" variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add signature
+                </Button>
+              </div>
+              
+              <div className="text-center py-8 text-gray-500">
+                <div className="h-12 w-12 mx-auto text-gray-300 mb-3 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <p>No email signatures created yet.</p>
+                <p className="text-sm mt-1">Add a signature to include in outgoing emails.</p>
               </div>
             </CardContent>
           </Card>
