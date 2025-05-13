@@ -1408,6 +1408,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Google OAuth Routes
+  // New endpoint to check Google OAuth configuration
+  app.get("/api/auth/google/config", (req, res) => {
+    try {
+      // Get the request origin or construct it from headers
+      const origin = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+      
+      // Generate the expected callback URL based on current domain
+      const expectedCallbackUrl = `${origin}/api/auth/google/callback`;
+      
+      // The currently configured callback URL
+      const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI;
+      
+      // Check if the environment has Replit-specific variables
+      const replitInfo = {
+        REPL_SLUG: process.env.REPL_SLUG,
+        REPL_OWNER: process.env.REPL_OWNER,
+        REPL_ID: process.env.REPL_ID,
+        alternativeCallback: process.env.REPL_SLUG && process.env.REPL_OWNER 
+          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback` 
+          : null
+      };
+      
+      res.json({
+        configured: googleService.hasValidCredentials(),
+        expectedCallbackUrl,
+        configuredCallbackUrl,
+        mismatch: expectedCallbackUrl !== configuredCallbackUrl,
+        replitInfo,
+        currentRequestInfo: {
+          origin,
+          protocol: req.protocol,
+          host: req.get('host'),
+          path: req.path,
+          headers: {
+            host: req.headers.host,
+            origin: req.headers.origin,
+            referer: req.headers.referer
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error checking Google config:", error);
+      res.status(500).json({ error: "Failed to check Google configuration" });
+    }
+  });
+
   app.get("/api/auth/google", (req, res) => {
     try {
       // Check if Google API credentials are configured

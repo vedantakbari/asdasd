@@ -670,7 +670,50 @@ const Inbox: React.FC = () => {
   return (
     <div className="p-4 h-[calc(100vh-64px)] flex flex-col">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Inbox</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Inbox</h1>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={async () => {
+              try {
+                const response = await fetch('/api/auth/google/config');
+                const data = await response.json();
+                
+                // Show the configuration information
+                toast({
+                  title: 'Google OAuth Configuration',
+                  description: (
+                    <div className="mt-2 text-xs">
+                      <p className={data.mismatch ? 'text-red-500 font-medium' : 'text-green-500 font-medium'}>
+                        {data.mismatch ? '⚠️ Mismatch detected!' : '✓ Configuration looks good'}
+                      </p>
+                      <p className="mt-1"><strong>Expected:</strong> {data.expectedCallbackUrl}</p>
+                      <p><strong>Configured:</strong> {data.configuredCallbackUrl}</p>
+                      {data.replitInfo.alternativeCallback && (
+                        <p><strong>Alt Replit URL:</strong> {data.replitInfo.alternativeCallback}</p>
+                      )}
+                    </div>
+                  ),
+                  duration: 10000,
+                });
+                
+                console.log('Google OAuth config:', data);
+              } catch (error) {
+                console.error('Failed to check Google config:', error);
+                toast({
+                  title: 'Error',
+                  description: 'Failed to check Google configuration',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          >
+            <AlertCircle className="h-4 w-4 mr-2" />
+            Check OAuth Config
+          </Button>
+        </div>
         
         <div className="flex items-center gap-2">
           <Button 
