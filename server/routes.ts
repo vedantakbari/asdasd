@@ -34,10 +34,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get clients (leads with isClient=true)
   app.get("/api/leads/clients", async (req, res) => {
     try {
+      console.log("Fetching clients endpoint called");
       const leads = await storage.getLeads();
+      console.log("Total leads:", leads.length);
+      
       const clients = leads.filter(lead => lead.isClient === true);
+      console.log("Found clients:", clients.length);
+      
+      // Log each client for debugging
+      if (clients.length > 0) {
+        clients.forEach(client => {
+          console.log(`Client: ${client.name}, ID: ${client.id}, isClient value: ${client.isClient}, kanbanLane: ${client.kanbanLane}`);
+        });
+      } else {
+        console.log("No clients found");
+        // Log all leads to see what we have
+        leads.forEach(lead => {
+          console.log(`Lead: ${lead.name}, ID: ${lead.id}, isClient value: ${lead.isClient}`);
+        });
+      }
+      
       res.json(clients);
     } catch (error) {
+      console.error("Error fetching clients:", error);
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
@@ -45,18 +64,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Convert a lead to a client
   app.post("/api/leads/:id/convert-to-client", async (req, res) => {
     try {
+      console.log("Convert to client endpoint called");
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
+        console.log("Invalid ID format:", req.params.id);
         return res.status(400).json({ message: "Invalid ID format" });
       }
       
       const lead = await storage.getLead(id);
       if (!lead) {
+        console.log("Lead not found with ID:", id);
         return res.status(404).json({ message: "Lead not found" });
       }
       
+      console.log("Found lead:", lead.name, "Current isClient value:", lead.isClient);
+      
       // Get the default pipeline for new clients
       const defaultPipeline = await storage.getDefaultPipeline();
+      console.log("Default pipeline:", defaultPipeline ? defaultPipeline.name : "None");
       
       // Update the lead to mark it as a client and assign to the first kanban lane
       const updateData: Partial<InsertLead> = {
@@ -70,16 +95,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.pipelineId = defaultPipeline.id;
       }
       
+      console.log("Updating lead with data:", JSON.stringify(updateData));
       const updatedLead = await storage.updateLead(id, updateData);
       
-      // Create activity for lead conversion
       if (updatedLead) {
+        console.log("Lead updated successfully:", updatedLead.name, "isClient value:", updatedLead.isClient);
+        
+        // Create activity for lead conversion
         await storage.createActivity({
           activityType: "lead_converted",
           description: `Lead ${lead.name} converted to client`,
           userId: 1, // Default to admin user for now
           relatedLeadId: lead.id
         });
+        
+        // Double check that the lead was actually updated in storage
+        const checkLead = await storage.getLead(id);
+        console.log("Verifying lead was updated:", 
+          checkLead ? `isClient = ${checkLead.isClient}, kanbanLane = ${checkLead.kanbanLane}` : "Lead not found");
+      } else {
+        console.log("Failed to update lead");
       }
       
       res.json(updatedLead);
