@@ -386,14 +386,13 @@ const Clients: React.FC = () => {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
+                // Redirect to inbox with compose dialog open and client email prefilled
                 if (client.email) {
-                  window.location.href = `mailto:${client.email}`;
-                  
-                  // Log this email activity
+                  // Log this email activity first
                   const activity = {
                     userId: 1,
-                    activityType: "email_sent",
-                    description: `Email sent to ${client.name}`,
+                    activityType: "email_initiated",
+                    description: `Email initiated to ${client.name}`,
                     entityType: "lead",
                     entityId: client.id
                   };
@@ -401,9 +400,26 @@ const Clients: React.FC = () => {
                   apiRequest("POST", "/api/activities", activity)
                     .then(() => {
                       queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                      
+                      // Store compose data in session storage
+                      sessionStorage.setItem('composeEmail', JSON.stringify({
+                        to: client.email,
+                        subject: '',
+                        body: '',
+                        open: true,
+                        leadId: client.id
+                      }));
+                      
+                      // Redirect to inbox tab
+                      window.location.href = '/inbox';
                     })
                     .catch(error => {
                       console.error("Failed to log email activity:", error);
+                      toast({
+                        title: "Error",
+                        description: "Failed to initiate email. Please try again.",
+                        variant: "destructive"
+                      });
                     });
                 } else {
                   toast({
@@ -651,15 +667,13 @@ const Clients: React.FC = () => {
               <Button 
                 variant="default" 
                 onClick={() => {
-                  // Open email client with client email
+                  // Redirect to inbox with compose dialog open and client email prefilled
                   if (client.email) {
-                    window.location.href = `mailto:${client.email}`;
-                    
-                    // Log this email activity
+                    // Log this email activity first
                     const activity = {
                       userId: 1,
-                      activityType: "email_sent",
-                      description: `Email sent to ${client.name}`,
+                      activityType: "email_initiated",
+                      description: `Email initiated to ${client.name}`,
                       entityType: "lead",
                       entityId: client.id
                     };
@@ -667,9 +681,26 @@ const Clients: React.FC = () => {
                     apiRequest("POST", "/api/activities", activity)
                       .then(() => {
                         queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                        
+                        // Store compose data in session storage
+                        sessionStorage.setItem('composeEmail', JSON.stringify({
+                          to: client.email,
+                          subject: '',
+                          body: '',
+                          open: true,
+                          leadId: client.id
+                        }));
+                        
+                        // Redirect to inbox tab
+                        window.location.href = '/inbox';
                       })
                       .catch(error => {
                         console.error("Failed to log email activity:", error);
+                        toast({
+                          title: "Error",
+                          description: "Failed to initiate email. Please try again.",
+                          variant: "destructive"
+                        });
                       });
                   } else {
                     toast({

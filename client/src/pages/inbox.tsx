@@ -87,6 +87,7 @@ const Inbox: React.FC = () => {
     subject: '',
     body: ''
   });
+  const [leadId, setLeadId] = useState<number | undefined>(undefined);
   const [addEmailData, setAddEmailData] = useState<AddEmailDialogData>({
     provider: 'gmail',
     email: ''
@@ -97,6 +98,7 @@ const Inbox: React.FC = () => {
   
   // Check for status in URL (after redirecting back from OAuth)
   useEffect(() => {
+    // Check URL params for OAuth status
     const url = new URL(window.location.href);
     const status = url.searchParams.get('status');
     const accountId = url.searchParams.get('accountId');
@@ -134,6 +136,33 @@ const Inbox: React.FC = () => {
           description: 'This email account is already connected to your profile.',
           variant: 'default'
         });
+      }
+    }
+    
+    // Check for compose data in session storage (from other pages)
+    const composeEmailData = sessionStorage.getItem('composeEmail');
+    if (composeEmailData) {
+      try {
+        const parsedData = JSON.parse(composeEmailData);
+        setComposeData({
+          to: parsedData.to || '',
+          subject: parsedData.subject || '',
+          body: parsedData.body || ''
+        });
+        
+        // Set the lead ID if provided
+        if (parsedData.leadId) {
+          setLeadId(parsedData.leadId);
+        }
+        
+        if (parsedData.open) {
+          setIsComposeOpen(true);
+        }
+        
+        // Clear the session storage after reading
+        sessionStorage.removeItem('composeEmail');
+      } catch (error) {
+        console.error('Failed to parse compose email data:', error);
       }
     }
   }, []);
@@ -226,11 +255,34 @@ const Inbox: React.FC = () => {
   // Send email mutation
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { accountId: number, to: string, subject: string, body: string, leadId?: number }) => {
+      // We'll add leadId to the request if we have one
       const res = await apiRequest('POST', '/api/email/send', data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
+      
+      // If we're sending to a lead/client, log it as an activity
+      if (variables.leadId) {
+        // Create an activity record for this email
+        const activity = {
+          userId: 1,
+          activityType: "email_sent",
+          description: `Email sent to ${variables.to} with subject: ${variables.subject}`,
+          entityType: "lead",
+          entityId: variables.leadId
+        };
+        
+        apiRequest("POST", "/api/activities", activity)
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/activities/entity/lead/' + variables.leadId] });
+          })
+          .catch(error => {
+            console.error("Failed to log email activity:", error);
+          });
+      }
+      
       setIsComposeOpen(false);
       setComposeData({ to: '', subject: '', body: '' });
       toast({
