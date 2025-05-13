@@ -379,7 +379,7 @@ const Settings: React.FC = () => {
                               }
                             }}
                           >
-                            Debug Google OAuth Configuration
+                            Get OAuth Configuration Help
                           </Button>
                           
                           <Button 
