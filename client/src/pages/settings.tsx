@@ -344,8 +344,27 @@ const Settings: React.FC = () => {
                             </div>
                             <div className="ml-3">
                               <p className="text-sm text-green-700">
-                                <strong>Better method:</strong> Use the "Get OAuth Configuration Help" button below to see exactly which redirect URIs you need to add.
+                                <strong>Important:</strong> Add ALL URIs shown above to avoid "accounts.google.com refused to connect" errors.
                               </p>
+                              
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-2 text-xs"
+                                onClick={() => {
+                                  const redirectUris = essentialURIs.join('\n');
+                                  navigator.clipboard.writeText(redirectUris)
+                                    .then(() => {
+                                      alert("Essential redirect URIs copied to clipboard! Paste these into your Google Cloud Console's 'Authorized redirect URIs' field.");
+                                    })
+                                    .catch(err => {
+                                      console.error('Could not copy text: ', err);
+                                      alert("Please manually copy the URIs above.");
+                                    });
+                                }}
+                              >
+                                Copy All URIs to Clipboard
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -378,17 +397,34 @@ const Settings: React.FC = () => {
                                 setDialogContent({
                                   title: "Google OAuth Configuration Helper",
                                   message: `
-                                    ${data.recommendation}
+                                    <div class="mb-4 bg-blue-50 p-3 rounded border border-blue-200">
+                                      <p class="font-semibold text-blue-800">Essential Redirect URIs</p>
+                                      <p class="text-blue-700 text-sm mb-2">Add ONLY these ${data.essentialRedirectURIs.length} URIs to Google Cloud Console:</p>
+                                    </div>
                                     
-                                    ADD THESE URIS TO GOOGLE CLOUD CONSOLE:
+                                    <div class="max-h-60 overflow-y-auto bg-gray-100 p-2 rounded font-mono text-xs mb-4">
+                                      ${data.essentialRedirectURIs.map((uri, i) => `<div class="py-1 flex">
+                                        <span class="text-green-600 mr-2">✓</span>
+                                        <span class="break-all">${uri}</span>
+                                      </div>`).join('')}
+                                    </div>
                                     
-                                    1. Go to Google Cloud Console → APIs & Services → Credentials
-                                    2. Edit your OAuth 2.0 Client ID
-                                    3. Under "Authorized redirect URIs", add each URI below
-                                    4. Click SAVE when done
+                                    <p class="text-sm font-medium mb-2">Instructions:</p>
+                                    <ol class="list-decimal ml-5 text-sm space-y-1 mb-3">
+                                      <li>Go to Google Cloud Console → APIs & Services → Credentials</li>
+                                      <li>Edit your OAuth 2.0 Client ID</li>
+                                      <li>Under "Authorized redirect URIs", add each URI shown above</li>
+                                      <li>Click SAVE when done</li>
+                                    </ol>
                                     
-                                    Current domain: ${data.currentDomain}
-                                    Expected callback URL: ${data.expectedCallbackUrl}
+                                    <p class="bg-yellow-50 p-2 rounded border border-yellow-200 text-sm text-yellow-800">
+                                      <strong>Important:</strong> Adding ALL of these URIs is necessary to prevent "accounts.google.com refused to connect" errors.
+                                    </p>
+                                    
+                                    <div class="mt-3 text-xs text-gray-500">
+                                      <div>Current domain: ${data.currentDomain}</div>
+                                      <div>Configured URI: ${data.configuredCallbackUrl || "None"}</div>
+                                    </div>
                                   `,
                                   actions: [
                                     {
