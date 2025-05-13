@@ -763,14 +763,24 @@ const Inbox: React.FC = () => {
                         return;
                       }
                       
+                      // Store current domain in session storage for OAuth validation
+                      sessionStorage.setItem('originDomain', window.location.origin);
+                      
                       // Store a flag in sessionStorage to indicate OAuth is in progress
                       sessionStorage.setItem('googleOAuthInProgress', 'true');
                       
-                      // Submit the form to initiate OAuth
-                      addEmailAccountMutation.mutate({ 
-                        provider: 'gmail', 
-                        email: 'oauth@gmail.com' // Placeholder, will be replaced with actual email after auth
+                      toast({
+                        title: 'Important',
+                        description: `Make sure ${window.location.origin}/api/auth/google/callback is in your Google Cloud Console redirect URIs`,
                       });
+                      
+                      // Submit the form to initiate OAuth after a short delay to ensure the toast is seen
+                      setTimeout(() => {
+                        addEmailAccountMutation.mutate({ 
+                          provider: 'gmail', 
+                          email: 'oauth@gmail.com' // Placeholder, will be replaced with actual email after auth
+                        });
+                      }, 1500);
                     }}
                   >
                     <svg 

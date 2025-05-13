@@ -6,6 +6,22 @@ const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
 
+// For debugging
+console.log("Google Redirect URI:", REDIRECT_URI);
+
+// Get current domain for alternative redirect URI if needed
+const REPL_SLUG = process.env.REPL_SLUG;
+const REPL_OWNER = process.env.REPL_OWNER;
+const REPL_ID = process.env.REPL_ID;
+const ALT_REDIRECT_URI = REPL_SLUG && REPL_OWNER 
+  ? `https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback` 
+  : null;
+
+// Log alternative URI for debugging
+if (ALT_REDIRECT_URI) {
+  console.log("Alternative Redirect URI:", ALT_REDIRECT_URI);
+}
+
 // Log warning if credentials are missing, but don't throw an error
 // This allows the application to start without credentials
 if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
@@ -36,10 +52,15 @@ export function createAuthClient(): OAuth2Client {
     console.warn('Attempting to create auth client without valid credentials');
   }
   
+  // Try to use the alternative redirect URI if the main one is failing
+  // This helps when running on different Replit environments
+  const redirectUri = ALT_REDIRECT_URI || REDIRECT_URI;
+  console.log("Using redirect URI:", redirectUri);
+  
   return new google.auth.OAuth2(
     CLIENT_ID,
     CLIENT_SECRET,
-    REDIRECT_URI
+    redirectUri
   );
 }
 
