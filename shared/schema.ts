@@ -34,7 +34,9 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
 });
 
-// This will be used later in the file, so we'll remove it from here
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+export type UpsertUser = InsertUser;
 
 // Lead status enum
 export const LeadStatus = {
@@ -282,9 +284,6 @@ export const insertGoogleCalendarSettingsSchema = createInsertSchema(googleCalen
 });
 
 // Type definitions
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type UpsertUser = z.infer<typeof insertUserSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
