@@ -4,11 +4,19 @@ import { z } from 'zod';
 import { insertEmailAccountSchema, insertEmailMessageSchema } from '@shared/schema';
 import { isAuthenticated } from '../replitAuth';
 import { EmailService } from '../emailService';
+import * as googleService from '../googleService';
+import crypto from 'crypto';
 
 const router = express.Router();
 
-// All email routes require authentication
-router.use(isAuthenticated);
+// Most email routes require authentication
+// Exclude Gmail OAuth routes from authentication requirement
+router.use((req, res, next) => {
+  if (req.path.startsWith('/gmail/auth') || req.path.startsWith('/gmail/callback')) {
+    return next();
+  }
+  isAuthenticated(req, res, next);
+});
 
 // Get all email accounts for the current user
 router.get('/accounts', async (req: any, res) => {
@@ -411,6 +419,151 @@ router.post('/sync/:accountId', async (req, res) => {
   } catch (error) {
     console.error("Error syncing emails:", error);
     res.status(500).json({ message: "Failed to sync emails" });
+  }
+});
+
+// Gmail OAuth routes
+router.get('/gmail/auth', (req, res) => {
+  try {
+    // Generate a state parameter to verify the callback
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const currentDomain = req.hostname;
+    const dynamicCallbackUrl = `${protocol}://${currentDomain}/api/email/gmail/callback`;
+    
+    // Store state in a cryptographically secure way
+    const state = Buffer.from(JSON.stringify({
+      for: "email",
+      timestamp: Date.now(),
+      domain: currentDomain,
+      protocol: protocol,
+      callbackUrl: dynamicCallbackUrl,
+      random: Math.random().toString(36).substring(2)
+    })).toString('base64');
+    
+    try {
+      // Generate auth URL with proper scopes for Gmail access
+      const authUrl = googleService.getAuthUrl(state);
+      res.redirect(authUrl);
+    } catch (error) {
+      console.error("Error generating auth URL:", error);
+      res.status(500).json({ message: "Failed to generate authentication URL" });
+    }
+  } catch (error) {
+    console.error("Error in Gmail auth route:", error);
+    res.status(500).json({ message: "An error occurred during authentication" });
+  }
+});
+
+router.get('/gmail/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      // Handle user denied permission case
+      if (req.query.error === 'access_denied') {
+        return res.redirect('/inbox?error=access_denied');
+      }
+      return res.status(400).json({ message: "Authorization code is missing" });
+    }
+    
+    // Get session userId from state parameter or req.user
+    let userId;
+    
+    try {
+      if (state) {
+        const stateObj = JSON.parse(Buffer.from(state as string, 'base64').toString());
+        // Check if this is for email (not calendar)
+        if (stateObj.for !== 'email') {
+          throw new Error('Invalid state parameter');
+        }
+        // Use the callback URL from state if available
+        const callbackUrl = stateObj.callbackUrl;
+        if (callbackUrl) {
+          // Execute token exchange with the original callback URL
+          const tokenResponse = await googleService.getTokens(code as string, callbackUrl);
+          
+          // Get user info from Google
+          const userInfo = await googleService.getUserInfo(tokenResponse.access_token);
+          
+          // Get user email from Google response
+          let emailAddress = '';
+          if (userInfo.emailAddresses && userInfo.emailAddresses.length > 0) {
+            emailAddress = userInfo.emailAddresses[0].value;
+          }
+          
+          if (!emailAddress) {
+            return res.status(400).json({ message: "Failed to retrieve email from Google" });
+          }
+          
+          // Use the authenticated user's ID
+          if (req.user && req.user.claims && req.user.claims.sub) {
+            userId = req.user.claims.sub;
+          } else {
+            // Redirect to login if no user session
+            return res.redirect('/api/login?redirect=/inbox');
+          }
+          
+          // Check if account already exists
+          const existingAccounts = await storage.getEmailAccountsByUser(userId);
+          
+          // First check for Gmail account with matching email
+          let existingAccount = existingAccounts.find(acc => 
+            acc.email === emailAddress && acc.provider === 'gmail'
+          );
+          
+          // If no exact match, look for any disconnected placeholder Gmail account
+          if (!existingAccount) {
+            existingAccount = existingAccounts.find(acc => 
+              acc.provider === 'gmail' && 
+              (!acc.connected || acc.connected === false) &&
+              (!acc.accessToken || !acc.refreshToken)
+            );
+          }
+          
+          if (existingAccount) {
+            // Update existing account with new tokens and email
+            await storage.updateEmailAccount(existingAccount.id, {
+              email: emailAddress,
+              displayName: userInfo.names && userInfo.names.length > 0 ? 
+                userInfo.names[0].displayName : emailAddress.split('@')[0],
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              provider: 'gmail',
+              connected: true,
+              lastSynced: new Date()
+            });
+            
+            return res.redirect('/inbox?connected=true');
+          } else {
+            // Create a new email account
+            await storage.createEmailAccount({
+              userId: userId,
+              email: emailAddress,
+              displayName: userInfo.names && userInfo.names.length > 0 ? 
+                userInfo.names[0].displayName : emailAddress.split('@')[0],
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              provider: 'gmail',
+              connected: true,
+              isDefault: existingAccounts.length === 0, // Set as default if this is the first account
+              lastSynced: new Date()
+            });
+            
+            return res.redirect('/inbox?connected=true&new=true');
+          }
+        }
+      }
+      
+      // If we get here, something went wrong with the state parameter
+      throw new Error('Invalid state parameter or callback URL');
+      
+    } catch (error) {
+      console.error("Error processing Gmail callback:", error);
+      return res.redirect('/inbox?error=oauth_error');
+    }
+  } catch (error) {
+    console.error("Error in Gmail callback route:", error);
+    res.status(500).json({ message: "An error occurred during authentication" });
   }
 });
 
