@@ -1,5 +1,5 @@
 import { 
-  users, type User, type InsertUser,
+  users, type User, type UpsertUser,
   leads, type Lead, type InsertLead,
   deals, type Deal, type InsertDeal,
   customers, type Customer, type InsertCustomer,
@@ -12,12 +12,13 @@ import {
   pipelines, type Pipeline, type InsertPipeline,
   LeadStatus, DealStage, TaskPriority, TaskStatus, KanbanLane
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Users
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(userData: UpsertUser): Promise<User>;
   
   // Google Calendar Integration
   getGoogleCalendarSettings(userId: number): Promise<GoogleCalendarSettings | undefined>;
