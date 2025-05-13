@@ -94,7 +94,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/leads", async (req, res) => {
     try {
-      const validatedData = insertLeadSchema.parse(req.body);
+      // Pre-process the request body to handle date format issues
+      const requestData = { ...req.body };
+      
+      // If nextActivityDate is a string, convert it to a Date object
+      if (requestData.nextActivityDate && typeof requestData.nextActivityDate === 'string') {
+        try {
+          requestData.nextActivityDate = new Date(requestData.nextActivityDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.nextActivityDate;
+        }
+      }
+      
+      const validatedData = insertLeadSchema.parse(requestData);
       const newLead = await storage.createLead(validatedData);
       
       // Create activity for lead creation
@@ -125,8 +138,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingLead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+      
+      // Pre-process the request body to handle date format issues
+      const requestData = { ...req.body };
+      
+      // If nextActivityDate is a string, convert it to a Date object
+      if (requestData.nextActivityDate && typeof requestData.nextActivityDate === 'string') {
+        try {
+          requestData.nextActivityDate = new Date(requestData.nextActivityDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.nextActivityDate;
+        }
+      }
 
-      const validatedData = insertLeadSchema.partial().parse(req.body);
+      const validatedData = insertLeadSchema.partial().parse(requestData);
       const updatedLead = await storage.updateLead(id, validatedData);
       
       // Create activity for status change if status was updated
@@ -219,7 +245,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/deals", async (req, res) => {
     try {
-      const validatedData = insertDealSchema.parse(req.body);
+      // Pre-process the request body to handle date format issues
+      const requestData = { ...req.body };
+      
+      // If startDate is a string, convert it to a Date object
+      if (requestData.startDate && typeof requestData.startDate === 'string') {
+        try {
+          requestData.startDate = new Date(requestData.startDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.startDate;
+        }
+      }
+      
+      // If endDate is a string, convert it to a Date object
+      if (requestData.endDate && typeof requestData.endDate === 'string') {
+        try {
+          requestData.endDate = new Date(requestData.endDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.endDate;
+        }
+      }
+      
+      const validatedData = insertDealSchema.parse(requestData);
       
       // Verify customer exists
       const customer = await storage.getCustomer(validatedData.customerId);
@@ -257,8 +306,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!existingDeal) {
         return res.status(404).json({ message: "Deal not found" });
       }
+      
+      // Pre-process the request body to handle date format issues
+      const requestData = { ...req.body };
+      
+      // If startDate is a string, convert it to a Date object
+      if (requestData.startDate && typeof requestData.startDate === 'string') {
+        try {
+          requestData.startDate = new Date(requestData.startDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.startDate;
+        }
+      }
+      
+      // If endDate is a string, convert it to a Date object
+      if (requestData.endDate && typeof requestData.endDate === 'string') {
+        try {
+          requestData.endDate = new Date(requestData.endDate);
+        } catch (e) {
+          // If date parsing fails, remove it to avoid validation errors
+          delete requestData.endDate;
+        }
+      }
 
-      const validatedData = insertDealSchema.partial().parse(req.body);
+      const validatedData = insertDealSchema.partial().parse(requestData);
       
       // If customerId is provided, verify customer exists
       if (validatedData.customerId) {
