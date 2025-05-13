@@ -35,6 +35,23 @@ export const LeadStatus = {
 } as const;
 
 // Lead schema
+// Pipeline schema for managing different workflows
+export const pipelines = pgTable("pipelines", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isDefault: boolean("is_default").default(false),
+  lanes: json("lanes").default([]), // Array of lane objects with id and name
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPipelineSchema = createInsertSchema(pipelines).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -53,6 +70,7 @@ export const leads = pgTable("leads", {
   labels: json("labels").default([]), // Array of labels for the lead
   isClient: boolean("is_client").default(false), // Flag to mark if converted to client
   kanbanLane: text("kanban_lane"), // Kanban lane for client view
+  pipelineId: integer("pipeline_id"), // Reference to which pipeline this client belongs to
   archived: boolean("archived").default(false), // Flag to mark if lead is archived
   customFields: json("custom_fields"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -67,13 +85,11 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
 
 // Client Kanban Lane enum
 export const KanbanLane = {
-  NEW_CLIENT: "new_client",
-  IN_PROGRESS: "in_progress",
-  FOLLOW_UP: "follow_up",
-  UPSELL: "upsell",
-  COMPLETED: "completed",
-  RECURRING: "recurring",
-  REFERRALS: "referrals",
+  PRESENT_VALUATION: "present_valuation",
+  SIGN_AGREEMENTS: "sign_agreements",
+  KICKOFF_MEETINGS: "kickoff_meetings",
+  CREATE_MARKETING: "create_marketing",
+  LAUNCH_MARKETING: "launch_marketing",
 } as const;
 
 // Deal stage enum - keeping for backward compatibility
@@ -303,3 +319,7 @@ export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({
 
 export type EmailAccount = typeof emailAccounts.$inferSelect;
 export type InsertEmailAccount = z.infer<typeof insertEmailAccountSchema>;
+
+// Pipeline type
+export type Pipeline = typeof pipelines.$inferSelect;
+export type InsertPipeline = z.infer<typeof insertPipelineSchema>;

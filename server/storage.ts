@@ -84,6 +84,16 @@ export interface IStorage {
   getActivities(): Promise<Activity[]>;
   createActivity(activity: InsertActivity): Promise<Activity>;
   getRecentActivities(limit: number): Promise<Activity[]>;
+  
+  // Pipelines
+  getPipelines(): Promise<Pipeline[]>;
+  getPipeline(id: number): Promise<Pipeline | undefined>;
+  getDefaultPipeline(): Promise<Pipeline | undefined>;
+  createPipeline(pipeline: InsertPipeline): Promise<Pipeline>;
+  updatePipeline(id: number, pipeline: Partial<InsertPipeline>): Promise<Pipeline | undefined>;
+  deletePipeline(id: number): Promise<boolean>;
+  setDefaultPipeline(id: number): Promise<Pipeline | undefined>;
+  updateLaneInPipeline(pipelineId: number, laneId: string, newName: string): Promise<Pipeline | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -97,6 +107,7 @@ export class MemStorage implements IStorage {
   private activities: Map<number, Activity>;
   private googleCalendarSettings: Map<number, GoogleCalendarSettings>;
   private emailAccounts: Map<number, EmailAccount>;
+  private pipelines: Map<number, Pipeline>;
   
   private userId: number;
   private leadId: number;
@@ -108,6 +119,7 @@ export class MemStorage implements IStorage {
   private activityId: number;
   private googleCalendarSettingsId: number;
   private emailAccountId: number;
+  private pipelineId: number;
 
   constructor() {
     this.users = new Map();
