@@ -1412,13 +1412,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Initialize OAuth flow for Gmail access
       const userId = 1; // Using default user for testing, normally from req.user.id
-      const state = Buffer.from(JSON.stringify({ userId, for: "email" })).toString('base64');
+      
+      console.log("Starting Google OAuth flow for Gmail access");
+      
+      // Create state parameter to track the OAuth flow
+      const state = Buffer.from(JSON.stringify({ 
+        userId, 
+        for: "email",
+        timestamp: Date.now(),
+        random: Math.random().toString(36).substring(2)
+      })).toString('base64');
+      
+      // Generate auth URL with proper scopes for Gmail access
       const authUrl = googleService.getAuthUrl(state);
+      
+      console.log(`Redirecting user to Google OAuth URL`);
       
       res.redirect(authUrl);
     } catch (error) {
       console.error("Error initiating Google OAuth:", error);
-      res.status(500).json({ message: "Failed to initiate Google authentication" });
+      res.redirect('/inbox?status=error&reason=oauth_start_failed');
     }
   });
   
@@ -1549,6 +1562,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Email Integration Routes
+  
+  // Check if Google credentials are properly configured
+  app.get("/api/google/credentials-status", (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    
+    // Do not expose actual values, just indicate if they're present
+    const status = {
+      clientId: !!clientId,
+      clientSecret: !!clientSecret,
+      redirectUri: !!redirectUri,
+      isConfigured: !!(clientId && clientSecret && redirectUri)
+    };
+    
+    res.json(status);
+  });
+  
   app.get("/api/email/accounts", async (req, res) => {
     try {
       // In a real app with authentication, you'd use req.user.id
@@ -1572,10 +1603,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For Gmail accounts, redirect to Google OAuth
       if (provider === 'gmail') {
+        console.log("User requesting Gmail connection, redirecting to OAuth");
+        
+        // Check for existing Gmail accounts
+        const existingAccounts = await storage.getEmailAccounts(userId);
+        const connectedGmailAccount = existingAccounts.find(acc => 
+          acc.provider === 'gmail' && acc.connected === true && acc.accessToken && acc.refreshToken
+        );
+        
+        if (connectedGmailAccount) {
+          console.log("User already has a connected Gmail account");
+          return res.json({
+            message: "Gmail account already connected",
+            accountId: connectedGmailAccount.id,
+            alreadyConnected: true
+          });
+        }
+        
+        // No connected account, proceed with new connection
         return res.json({ 
           redirectUrl: '/api/auth/google',
           provider: 'gmail',
-          needsAuth: true
+          needsAuth: true,
+          message: "Redirecting to Google authentication"
         });
       }
       

@@ -1,13 +1,22 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 
-// Check if required environment variables are present
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error('Missing required Google API credentials. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.');
+// Check if Google API credentials are available
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
+
+// Log warning if credentials are missing, but don't throw an error
+// This allows the application to start without credentials
+if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+  console.warn('⚠️ Google API credentials are missing or incomplete. Gmail integration will not function properly.');
+  console.warn('Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables.');
 }
 
-// Define the redirect URI
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'https://a550efcd-4046-401e-8a0d-760645eb2aad-00-2gnkazwaaxzb9.picard.replit.dev/api/auth/google/callback';
+// Check if credentials are available
+export function hasValidCredentials(): boolean {
+  return !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);
+}
 
 // Define the scopes we need for Gmail access
 const SCOPES = [
@@ -23,9 +32,13 @@ const SCOPES = [
  * Create an OAuth2 client with the given credentials
  */
 export function createAuthClient(): OAuth2Client {
+  if (!hasValidCredentials()) {
+    console.warn('Attempting to create auth client without valid credentials');
+  }
+  
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    CLIENT_ID,
+    CLIENT_SECRET,
     REDIRECT_URI
   );
 }
