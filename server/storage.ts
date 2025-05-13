@@ -9,6 +9,7 @@ import {
   activities, type Activity, type InsertActivity,
   googleCalendarSettings, type GoogleCalendarSettings, type InsertGoogleCalendarSettings,
   emailAccounts, type EmailAccount, type InsertEmailAccount,
+  emailMessages, type EmailMessage, type InsertEmailMessage,
   pipelines, type Pipeline, type InsertPipeline,
   LeadStatus, DealStage, TaskPriority, TaskStatus, KanbanLane
 } from "@shared/schema";
@@ -26,11 +27,19 @@ export interface IStorage {
   updateGoogleCalendarSettings(userId: number, settings: Partial<InsertGoogleCalendarSettings>): Promise<GoogleCalendarSettings | undefined>;
   
   // Email Integration
-  getEmailAccounts(userId: number): Promise<EmailAccount[]>;
+  getEmailAccounts(): Promise<EmailAccount[]>;
+  getEmailAccountsByUser(userId: string): Promise<EmailAccount[]>;
   getEmailAccount(id: number): Promise<EmailAccount | undefined>;
   createEmailAccount(account: InsertEmailAccount): Promise<EmailAccount>;
   updateEmailAccount(id: number, account: Partial<InsertEmailAccount>): Promise<EmailAccount | undefined>;
   deleteEmailAccount(id: number): Promise<boolean>;
+  
+  // Email Messages
+  getEmailMessages(accountId: number, folder?: string): Promise<EmailMessage[]>;
+  getEmailMessage(id: number): Promise<EmailMessage | undefined>;
+  saveEmailMessage(message: InsertEmailMessage): Promise<EmailMessage>;
+  updateEmailMessage(accountId: number, messageId: string, updateData: Partial<EmailMessage>): Promise<EmailMessage | undefined>;
+  deleteEmailMessage(id: number): Promise<boolean>;
   
   // Leads
   getLeads(): Promise<Lead[]>;

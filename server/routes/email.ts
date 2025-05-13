@@ -1,16 +1,17 @@
-import express from 'express';
+import { Router } from 'express';
+import { emailService } from '../emailService';
 import { storage } from '../storage';
 import { isAuthenticated } from '../replitAuth';
-import { emailService } from '../emailService';
-import { insertEmailAccountSchema } from '@shared/schema';
 import { z } from 'zod';
+import { insertEmailAccountSchema, insertEmailMessageSchema } from '@shared/schema';
 
-const router = express.Router();
+const router = Router();
 
-// Email account management
+// Get all email accounts for the current user
 router.get('/accounts', isAuthenticated, async (req: any, res) => {
   try {
-    const accounts = await storage.getEmailAccounts(req.user.claims.sub);
+    const userId = req.user.claims.sub;
+    const accounts = await storage.getEmailAccountsByUser(userId);
     res.json(accounts);
   } catch (error) {
     console.error('Error fetching email accounts:', error);
@@ -18,17 +19,25 @@ router.get('/accounts', isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Get a specific email account
 router.get('/accounts/:id', isAuthenticated, async (req: any, res) => {
   try {
-    const account = await storage.getEmailAccount(parseInt(req.params.id));
+    const userId = req.user.claims.sub;
+    const accountId = parseInt(req.params.id);
+    
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
+    }
+    
+    const account = await storage.getEmailAccount(accountId);
     
     if (!account) {
       return res.status(404).json({ message: 'Email account not found' });
     }
     
-    // Verify the account belongs to the authenticated user
-    if (account.userId.toString() !== req.user.claims.sub) {
-      return res.status(403).json({ message: 'Unauthorized access to email account' });
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to access this account' });
     }
     
     res.json(account);
@@ -38,40 +47,51 @@ router.get('/accounts/:id', isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Create a new email account
 router.post('/accounts', isAuthenticated, async (req: any, res) => {
   try {
-    const validatedData = insertEmailAccountSchema.parse({
+    const userId = req.user.claims.sub;
+    
+    // Validate the request body
+    const accountData = insertEmailAccountSchema.parse({
       ...req.body,
-      userId: parseInt(req.user.claims.sub)
+      userId
     });
     
-    const account = await storage.createEmailAccount(validatedData);
+    // Create the account
+    const account = await storage.createEmailAccount(accountData);
     res.status(201).json(account);
   } catch (error) {
     console.error('Error creating email account:', error);
-    
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ message: 'Invalid data provided', errors: error.errors });
+      return res.status(400).json({ message: 'Invalid account data', errors: error.errors });
     }
-    
     res.status(500).json({ message: 'Failed to create email account' });
   }
 });
 
-router.put('/accounts/:id', isAuthenticated, async (req: any, res) => {
+// Update an email account
+router.patch('/accounts/:id', isAuthenticated, async (req: any, res) => {
   try {
+    const userId = req.user.claims.sub;
     const accountId = parseInt(req.params.id);
-    const existingAccount = await storage.getEmailAccount(accountId);
     
-    if (!existingAccount) {
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
+    }
+    
+    const account = await storage.getEmailAccount(accountId);
+    
+    if (!account) {
       return res.status(404).json({ message: 'Email account not found' });
     }
     
-    // Verify the account belongs to the authenticated user
-    if (existingAccount.userId.toString() !== req.user.claims.sub) {
-      return res.status(403).json({ message: 'Unauthorized access to email account' });
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to update this account' });
     }
     
+    // Update the account
     const updatedAccount = await storage.updateEmailAccount(accountId, req.body);
     res.json(updatedAccount);
   } catch (error) {
@@ -80,20 +100,28 @@ router.put('/accounts/:id', isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Delete an email account
 router.delete('/accounts/:id', isAuthenticated, async (req: any, res) => {
   try {
+    const userId = req.user.claims.sub;
     const accountId = parseInt(req.params.id);
-    const existingAccount = await storage.getEmailAccount(accountId);
     
-    if (!existingAccount) {
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
+    }
+    
+    const account = await storage.getEmailAccount(accountId);
+    
+    if (!account) {
       return res.status(404).json({ message: 'Email account not found' });
     }
     
-    // Verify the account belongs to the authenticated user
-    if (existingAccount.userId.toString() !== req.user.claims.sub) {
-      return res.status(403).json({ message: 'Unauthorized access to email account' });
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this account' });
     }
     
+    // Delete the account
     await storage.deleteEmailAccount(accountId);
     res.status(204).send();
   } catch (error) {
@@ -102,13 +130,15 @@ router.delete('/accounts/:id', isAuthenticated, async (req: any, res) => {
   }
 });
 
-// Email send/receive
-router.post('/send', isAuthenticated, async (req: any, res) => {
+// Get emails for a specific account and folder
+router.get('/:accountId/messages', isAuthenticated, async (req: any, res) => {
   try {
-    const { accountId, to, subject, body, html, relatedLeadId, relatedCustomerId } = req.body;
+    const userId = req.user.claims.sub;
+    const accountId = parseInt(req.params.accountId);
+    const folder = req.query.folder || 'inbox';
     
-    if (!accountId || !to || !subject || (!body && !html)) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
     }
     
     const account = await storage.getEmailAccount(accountId);
@@ -117,38 +147,84 @@ router.post('/send', isAuthenticated, async (req: any, res) => {
       return res.status(404).json({ message: 'Email account not found' });
     }
     
-    // Verify the account belongs to the authenticated user
-    if (account.userId.toString() !== req.user.claims.sub) {
-      return res.status(403).json({ message: 'Unauthorized access to email account' });
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to access this account' });
     }
+    
+    // Get emails from service
+    const emails = await emailService.getEmails(accountId, folder as string);
+    res.json(emails);
+  } catch (error) {
+    console.error('Error fetching emails:', error);
+    res.status(500).json({ message: 'Failed to fetch emails' });
+  }
+});
+
+// Send a new email
+router.post('/:accountId/send', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.claims.sub;
+    const accountId = parseInt(req.params.accountId);
+    
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
+    }
+    
+    const account = await storage.getEmailAccount(accountId);
+    
+    if (!account) {
+      return res.status(404).json({ message: 'Email account not found' });
+    }
+    
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to send from this account' });
+    }
+    
+    // Validate email data
+    const emailSchema = z.object({
+      to: z.string(),
+      subject: z.string(),
+      text: z.string().optional(),
+      html: z.string().optional(),
+      relatedLeadId: z.number().nullable().optional(),
+      relatedCustomerId: z.number().nullable().optional()
+    });
+    
+    const emailData = emailSchema.parse(req.body);
     
     // Send the email
     const success = await emailService.sendEmail(accountId, {
       from: account.email,
       fromName: account.displayName,
-      to,
-      subject,
-      text: body,
-      html,
-      relatedLeadId: relatedLeadId ? parseInt(relatedLeadId) : undefined,
-      relatedCustomerId: relatedCustomerId ? parseInt(relatedCustomerId) : undefined,
+      ...emailData
     });
     
-    if (!success) {
-      return res.status(500).json({ message: 'Failed to send email' });
+    if (success) {
+      res.status(201).json({ message: 'Email sent successfully' });
+    } else {
+      res.status(500).json({ message: 'Failed to send email' });
     }
-    
-    res.status(200).json({ message: 'Email sent successfully' });
   } catch (error) {
     console.error('Error sending email:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Invalid email data', errors: error.errors });
+    }
     res.status(500).json({ message: 'Failed to send email' });
   }
 });
 
-router.get('/messages/:accountId/:folder', isAuthenticated, async (req: any, res) => {
+// Mark an email as read/unread
+router.patch('/:accountId/messages/:messageId', isAuthenticated, async (req: any, res) => {
   try {
+    const userId = req.user.claims.sub;
     const accountId = parseInt(req.params.accountId);
-    const folder = req.params.folder || 'inbox';
+    const messageId = req.params.messageId;
+    
+    if (isNaN(accountId)) {
+      return res.status(400).json({ message: 'Invalid account ID' });
+    }
     
     const account = await storage.getEmailAccount(accountId);
     
@@ -156,17 +232,35 @@ router.get('/messages/:accountId/:folder', isAuthenticated, async (req: any, res
       return res.status(404).json({ message: 'Email account not found' });
     }
     
-    // Verify the account belongs to the authenticated user
-    if (account.userId.toString() !== req.user.claims.sub) {
-      return res.status(403).json({ message: 'Unauthorized access to email account' });
+    // Check if account belongs to user
+    if (account.userId !== userId) {
+      return res.status(403).json({ message: 'Not authorized to update emails in this account' });
     }
     
-    // Get emails from the service
-    const emails = await emailService.getEmails(accountId, folder);
-    res.json(emails);
+    // Validate update data
+    const updateSchema = z.object({
+      read: z.boolean().optional(),
+      folder: z.string().optional(),
+      relatedLeadId: z.number().nullable().optional(),
+      relatedCustomerId: z.number().nullable().optional()
+    });
+    
+    const updateData = updateSchema.parse(req.body);
+    
+    // Update the message
+    const updatedMessage = await storage.updateEmailMessage(accountId, messageId, updateData);
+    
+    if (updatedMessage) {
+      res.json(updatedMessage);
+    } else {
+      res.status(404).json({ message: 'Email message not found' });
+    }
   } catch (error) {
-    console.error('Error fetching emails:', error);
-    res.status(500).json({ message: 'Failed to fetch emails' });
+    console.error('Error updating email:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Invalid update data', errors: error.errors });
+    }
+    res.status(500).json({ message: 'Failed to update email' });
   }
 });
 

@@ -26,6 +26,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register email routes
   app.use("/api/email", emailRoutes);
   
+  // Import the email router from our routes/email.ts file
+  console.log("Email routes registered through router");
+  
   // Auth user endpoint
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
