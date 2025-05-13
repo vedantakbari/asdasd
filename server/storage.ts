@@ -186,11 +186,14 @@ export class MemStorage implements IStorage {
   async createLead(insertLead: InsertLead): Promise<Lead> {
     const id = this.leadId++;
     const now = new Date();
+    // Set default values for important fields
     const lead: Lead = { 
       ...insertLead, 
       id, 
       createdAt: now, 
-      updatedAt: now 
+      updatedAt: now,
+      isClient: insertLead.isClient || false, // Ensure isClient is explicitly set
+      kanbanLane: insertLead.kanbanLane || KanbanLane.NEW_CLIENT // Set default lane
     };
     this.leads.set(id, lead);
     return lead;

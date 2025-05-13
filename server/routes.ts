@@ -41,6 +41,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clients = leads.filter(lead => lead.isClient === true);
       console.log("Found clients:", clients.length);
       
+      // If we didn't find any clients, but we have leads with isClient === undefined,
+      // this might be due to legacy data. Let's try to convert any lead marked as CLIENT status
+      if (clients.length === 0) {
+        const possibleClients = leads.filter(lead => 
+          (lead.isClient === undefined && lead.status === LeadStatus.CLIENT) || 
+          (lead.isClient === true)
+        );
+        
+        console.log("Additional possible clients found:", possibleClients.length);
+        
+        // Update these leads to have isClient = true explicitly
+        for (const possibleClient of possibleClients) {
+          await storage.updateLead(possibleClient.id, { 
+            isClient: true,
+            kanbanLane: possibleClient.kanbanLane || KanbanLane.NEW_CLIENT
+          });
+          console.log(`Updated client status for lead ${possibleClient.id} (${possibleClient.name})`);
+        }
+        
+        // Re-fetch all leads after updating
+        if (possibleClients.length > 0) {
+          const updatedLeads = await storage.getLeads();
+          const updatedClients = updatedLeads.filter(lead => lead.isClient === true);
+          console.log("After updating, found clients:", updatedClients.length);
+          return res.json(updatedClients);
+        }
+      }
+      
       // Log each client for debugging
       if (clients.length > 0) {
         clients.forEach(client => {
