@@ -30,6 +30,9 @@ const EmailSync: React.FC = () => {
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
   const [isConnectingEmail, setIsConnectingEmail] = useState(false);
   
+  // State for sender name
+  const [senderName, setSenderName] = useState("");
+  
   // State for sync settings
   const [syncSettings, setSyncSettings] = useState({
     frequency: "15min",
@@ -229,6 +232,8 @@ const EmailSync: React.FC = () => {
                       id="senderName" 
                       placeholder="Your Name" 
                       className="max-w-xs"
+                      value={senderName}
+                      onChange={(e) => setSenderName(e.target.value)}
                     />
                   </div>
                   <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
@@ -246,13 +251,21 @@ const EmailSync: React.FC = () => {
                       </Badge>
                     </div>
                   ) : (
-                    <Button 
-                      size="sm" 
-                      onClick={connectGmailAccount}
-                      disabled={isConnectingEmail || !credentialsStatus.isConfigured}
-                    >
-                      {isConnectingEmail ? 'Connecting...' : 'Connect email'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        onClick={connectGmailAccount}
+                        disabled={isConnectingEmail || !credentialsStatus.isConfigured}
+                      >
+                        {isConnectingEmail ? 'Connecting...' : 'Connect email'}
+                      </Button>
+                      
+                      {!credentialsStatus.isConfigured && (
+                        <span className="text-amber-600 text-sm ml-2">
+                          Google API credentials required
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 
@@ -360,18 +373,29 @@ const EmailSync: React.FC = () => {
               
               <div className="space-y-3">
                 <div className="flex items-start gap-2">
-                  <input type="radio" id="sharedVisibility" name="emailVisibility" className="mt-1" checked />
+                  <input 
+                    type="radio" 
+                    id="sharedVisibility" 
+                    name="emailVisibility" 
+                    className="mt-1" 
+                    defaultChecked 
+                  />
                   <div>
                     <Label htmlFor="sharedVisibility" className="font-medium">Shared - visible to all</Label>
-                    <p className="text-sm text-muted-foreground">Email conversations will be visible to all users when linked to Pipedrive items.</p>
+                    <p className="text-sm text-muted-foreground">Email conversations will be visible to all users when linked to CRM items.</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start gap-2">
-                  <input type="radio" id="privateVisibility" name="emailVisibility" className="mt-1" />
+                  <input 
+                    type="radio" 
+                    id="privateVisibility" 
+                    name="emailVisibility" 
+                    className="mt-1" 
+                  />
                   <div>
                     <Label htmlFor="privateVisibility" className="font-medium">Private</Label>
-                    <p className="text-sm text-muted-foreground">Email conversations will be visible only to you, even when linked to Pipedrive items.</p>
+                    <p className="text-sm text-muted-foreground">Email conversations will be visible only to you, even when linked to CRM items.</p>
                   </div>
                 </div>
               </div>
@@ -409,6 +433,23 @@ const EmailSync: React.FC = () => {
                   <Label htmlFor="syncSelectedFolders">Select folders to sync emails from</Label>
                 </div>
                 
+                {!syncSettings.syncAllFolders && (
+                  <div className="ml-6 pl-2 border-l-2 border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input type="checkbox" id="folder-inbox" defaultChecked />
+                      <Label htmlFor="folder-inbox">Inbox</Label>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input type="checkbox" id="folder-sent" defaultChecked />
+                      <Label htmlFor="folder-sent">Sent</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="folder-drafts" />
+                      <Label htmlFor="folder-drafts">Drafts</Label>
+                    </div>
+                  </div>
+                )}
+                
                 <Button onClick={saveSyncSettings} size="sm" className="mt-2">Save</Button>
               </div>
             </CardContent>
@@ -444,37 +485,47 @@ const EmailSync: React.FC = () => {
           
           {/* Google API configuration */}
           {!credentialsStatus.isConfigured && (
-            <Card>
+            <Card className="border-amber-200 bg-amber-50/50">
               <CardContent className="pt-6">
-                <h2 className="text-xl font-medium mb-4">Google API Configuration</h2>
+                <div className="flex items-center mb-4">
+                  <h2 className="text-xl font-medium text-amber-800">Google API Configuration Required</h2>
+                </div>
                 
                 <div className="space-y-4">
+                  <p className="text-amber-700">
+                    Before you can connect your email account, you need to configure your Google API credentials.
+                  </p>
+                
                   <div className="grid gap-2">
-                    <Label htmlFor="clientId">Client ID</Label>
+                    <Label htmlFor="clientId" className="text-amber-800">Client ID</Label>
                     <Input 
                       id="clientId" 
                       value={googleCredentials.clientId} 
                       onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
                       placeholder="Enter your Google Client ID"
+                      className="border-amber-200"
                     />
                   </div>
                   
                   <div className="grid gap-2">
-                    <Label htmlFor="clientSecret">Client Secret</Label>
+                    <Label htmlFor="clientSecret" className="text-amber-800">Client Secret</Label>
                     <Input 
                       id="clientSecret" 
                       value={googleCredentials.clientSecret} 
                       onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
                       placeholder="Enter your Google Client Secret"
+                      className="border-amber-200"
                     />
                   </div>
                   
-                  <Button onClick={saveGoogleCredentials}>Save Credentials</Button>
+                  <Button onClick={saveGoogleCredentials} className="bg-amber-600 hover:bg-amber-700">
+                    Save Credentials
+                  </Button>
                   
-                  <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
-                    <h3 className="font-medium text-blue-800 mb-2">How to get Google API credentials</h3>
-                    <ol className="list-decimal ml-5 text-sm space-y-1 text-blue-800">
-                      <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google Cloud Console</a></li>
+                  <div className="bg-white p-4 rounded-md border border-amber-200">
+                    <h3 className="font-medium text-amber-800 mb-2">How to get Google API credentials</h3>
+                    <ol className="list-decimal ml-5 text-sm space-y-1 text-amber-700">
+                      <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">Google Cloud Console</a></li>
                       <li>Create a new project or select an existing one</li>
                       <li>Go to "Credentials" and click "Create Credentials" &gt; "OAuth client ID"</li>
                       <li>Select "Web application" as the application type</li>
