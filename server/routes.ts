@@ -1681,12 +1681,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Handle sending the email based on provider
       let emailId;
+      let emailSent = false;
+      let errorMessage = null;
       
       if (account.provider === 'gmail' && account.accessToken && account.refreshToken) {
         try {
+          console.log(`Sending email via Gmail API to: ${to}, subject: ${subject}`);
+          
+          // Refresh token if needed
+          let currentAccessToken = account.accessToken;
+          if (!currentAccessToken || (account.expiresAt && new Date(account.expiresAt) < new Date())) {
+            console.log('Access token expired or missing, refreshing...');
+            try {
+              currentAccessToken = await googleService.refreshAccessToken(account.refreshToken);
+              // Update the account with the new token
+              await storage.updateEmailAccount(account.id, {
+                accessToken: currentAccessToken,
+                expiresAt: new Date(Date.now() + 3500 * 1000) // Set expiry to ~58 minutes from now
+              });
+              console.log('Access token refreshed successfully');
+            } catch (refreshError) {
+              console.error('Failed to refresh access token:', refreshError);
+              return res.status(401).json({ 
+                message: "Authentication expired, please reconnect your Gmail account",
+                error: 'AUTH_REFRESH_FAILED'
+              });
+            }
+          }
+          
           // Send email using Gmail API
           const response = await googleService.sendGmailMessage(
-            account.accessToken,
+            currentAccessToken,
             account.refreshToken,
             to,
             subject,
@@ -1694,13 +1719,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           emailId = response.id;
+          emailSent = true;
           
           // Update last synced timestamp
           await storage.updateEmailAccount(account.id, {
             lastSynced: new Date()
           });
+          
+          console.log(`Email sent successfully via Gmail API. Message ID: ${emailId}`);
         } catch (apiError) {
           console.error("Error sending email via Gmail API:", apiError);
+          errorMessage = apiError.message;
+          
+          // Check if error is related to authentication
+          if (apiError.message && (
+              apiError.message.includes('invalid_grant') || 
+              apiError.message.includes('unauthorized') ||
+              apiError.message.includes('auth') ||
+              apiError.message.includes('401')
+          )) {
+            return res.status(401).json({ 
+              message: "Authentication failed, please reconnect your Gmail account",
+              error: 'AUTH_FAILED'
+            });
+          }
+          
           return res.status(500).json({ 
             message: "Failed to send email through Gmail API",
             error: apiError.message 
@@ -1708,34 +1751,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else {
         // For other providers or demo accounts, simulate sending
+        console.log('Using simulated email sending (demo mode)');
         emailId = `demo_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        emailSent = true;
       }
       
-      // Create activity to log the sent email
-      await storage.createActivity({
-        userId: account.userId,
-        activityType: "email_sent",
-        description: `Email sent to ${to} with subject: ${subject}`,
-        relatedLeadId: leadId || null
-      });
-      
-      res.json({ 
-        success: true,
-        message: {
-          id: emailId,
-          from: account.email,
-          to,
-          subject,
-          body,
-          date: new Date(),
-          read: true,
-          folder: "sent",
-          leadId: leadId || null
+      if (emailSent) {
+        // Retrieve the lead information if leadId is provided
+        let leadName = "contact";
+        if (leadId) {
+          const lead = await storage.getLead(leadId);
+          if (lead) {
+            leadName = lead.name || to;
+          }
         }
-      });
+        
+        // Create activity to log the sent email in the client's activity history
+        const activity = await storage.createActivity({
+          userId: account.userId,
+          activityType: "email_sent",
+          description: `Email sent to ${leadName} with subject: "${subject}"`,
+          entityType: leadId ? "lead" : null,
+          entityId: leadId || null,
+          metadata: {
+            emailId,
+            from: account.email,
+            to,
+            subject,
+            body: body.substring(0, 150) + (body.length > 150 ? '...' : ''),
+            timestamp: new Date().toISOString()
+          }
+        });
+        
+        console.log(`Activity recorded for email: ${activity.id}`);
+        
+        // Return the sent message details
+        res.json({ 
+          success: true,
+          message: {
+            id: emailId,
+            from: account.email,
+            to,
+            subject,
+            body,
+            date: new Date(),
+            read: true,
+            folder: "sent",
+            leadId: leadId || null,
+            activityId: activity.id
+          }
+        });
+      } else {
+        throw new Error(errorMessage || "Failed to send email");
+      }
     } catch (error) {
       console.error("Error sending email:", error);
-      res.status(500).json({ message: "Failed to send email" });
+      res.status(500).json({ 
+        message: "Failed to send email", 
+        error: error.message 
+      });
     }
   });
 
