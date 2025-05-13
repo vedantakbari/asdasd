@@ -652,6 +652,59 @@ export class MemStorage implements IStorage {
     
     return this.emailAccounts.delete(id);
   }
+  
+  // Email Message Methods
+  async getEmailMessages(accountId: number, folder?: string): Promise<EmailMessage[]> {
+    const messages: EmailMessage[] = [];
+    
+    for (const message of this.emailMessages.values()) {
+      if (message.accountId === accountId && (!folder || message.folder === folder)) {
+        messages.push(message);
+      }
+    }
+    
+    return messages;
+  }
+  
+  async getEmailMessage(id: number): Promise<EmailMessage | undefined> {
+    return this.emailMessages.get(id);
+  }
+  
+  async saveEmailMessage(message: InsertEmailMessage): Promise<EmailMessage> {
+    const id = this.emailMessageId++;
+    const newMessage: EmailMessage = {
+      id,
+      createdAt: new Date(),
+      ...message
+    };
+    
+    this.emailMessages.set(id, newMessage);
+    return newMessage;
+  }
+  
+  async updateEmailMessage(accountId: number, messageId: string, updateData: Partial<EmailMessage>): Promise<EmailMessage | undefined> {
+    // Find the message by accountId and messageId
+    const messages = await this.getEmailMessages(accountId);
+    const message = messages.find(msg => msg.messageId === messageId);
+    
+    if (!message) {
+      return undefined;
+    }
+    
+    const updatedMessage = {
+      ...message,
+      ...updateData,
+    };
+    
+    this.emailMessages.set(message.id, updatedMessage);
+    return updatedMessage;
+  }
+  
+  async deleteEmailMessage(id: number): Promise<boolean> {
+    const exists = this.emailMessages.has(id);
+    this.emailMessages.delete(id);
+    return exists;
+  }
 
   // Helper method to seed sample data for testing
   private seedSampleData() {

@@ -247,8 +247,16 @@ router.patch('/:accountId/messages/:messageId', isAuthenticated, async (req: any
     
     const updateData = updateSchema.parse(req.body);
     
+    // First get the message by ID to update it
+    const messages = await storage.getEmailMessages(accountId);
+    const message = messages.find(msg => msg.messageId === messageId);
+    
+    if (!message) {
+      return res.status(404).json({ message: 'Email message not found' });
+    }
+    
     // Update the message
-    const updatedMessage = await storage.updateEmailMessage(accountId, messageId, updateData);
+    const updatedMessage = await storage.updateEmailMessage(message.id, updateData);
     
     if (updatedMessage) {
       res.json(updatedMessage);
