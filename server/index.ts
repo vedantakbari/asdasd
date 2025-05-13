@@ -1,23 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupAuth } from "./replitAuth";
-import path from "path";
-import fs from "fs";
-
-// Read the fallback HTML file
-const FALLBACK_HTML_PATH = path.join(process.cwd(), "public", "index-fallback.html");
-let fallbackHtml = "";
-try {
-  if (fs.existsSync(FALLBACK_HTML_PATH)) {
-    fallbackHtml = fs.readFileSync(FALLBACK_HTML_PATH, "utf-8");
-    console.log("Loaded fallback HTML for reliability");
-  } else {
-    console.warn("Fallback HTML not found at:", FALLBACK_HTML_PATH);
-  }
-} catch (err) {
-  console.error("Error loading fallback HTML:", err);
-}
 
 const app = express();
 app.use(express.json());
@@ -26,32 +9,6 @@ app.use(express.urlencoded({ extended: false }));
 // Add health check route but only respond when requesting /api/health
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
-});
-
-// Add fallback route that will always work even if React fails
-app.get("/fallback", (_req, res) => {
-  if (fallbackHtml) {
-    res.setHeader('Content-Type', 'text/html');
-    res.send(fallbackHtml);
-  } else {
-    res.send(`
-      <html>
-        <head>
-          <title>ServiceCRM</title>
-          <style>
-            body { font-family: sans-serif; padding: 2rem; text-align: center; max-width: 800px; margin: 0 auto; }
-            h1 { color: #4299e1; }
-            a { display: inline-block; margin-top: 1rem; background: #4299e1; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 0.25rem; }
-          </style>
-        </head>
-        <body>
-          <h1>ServiceCRM</h1>
-          <p>Free Customer Relationship Management for all business types</p>
-          <a href="/api/login">Login or Sign Up</a>
-        </body>
-      </html>
-    `);
-  }
 });
 
 app.use((req, res, next) => {
@@ -91,9 +48,6 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 (async () => {
-  // Set up Replit Auth
-  await setupAuth(app);
-  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -125,38 +79,19 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
         }
         
         try {
-          // First try to serve the regular index.html
           res.sendFile("index.html", { root: "./public" });
         } catch (err) {
-          console.error("Error serving index.html, trying fallback:", err);
-          
-          // If that fails, serve our fallback HTML
-          if (fallbackHtml) {
-            console.log("Serving fallback HTML for route:", req.originalUrl);
-            res.setHeader('Content-Type', 'text/html');
-            res.send(fallbackHtml);
-          } else {
-            // Last resort fallback if even our fallback HTML isn't available
-            console.log("Serving minimal HTML fallback for route:", req.originalUrl);
-            res.status(200).send(`
-              <html>
-                <head>
-                  <title>ServiceCRM</title>
-                  <style>
-                    body { font-family: sans-serif; padding: 2rem; text-align: center; max-width: 800px; margin: 0 auto; }
-                    h1 { color: #4299e1; }
-                    a { display: inline-block; margin-top: 1rem; background: #4299e1; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 0.25rem; }
-                  </style>
-                </head>
-                <body>
-                  <h1>ServiceCRM</h1>
-                  <p>Free Customer Relationship Management for all business types</p>
-                  <p>The application is running. Please sign in to continue:</p>
-                  <a href="/api/login">Login or Sign Up</a>
-                </body>
-              </html>
-            `);
-          }
+          console.error("Error serving fallback index.html:", err);
+          res.status(200).send(`
+            <html>
+              <head><title>Home Services CRM</title></head>
+              <body>
+                <h1>Home Services CRM</h1>
+                <p>Application is running. Please try accessing a specific route like 
+                <a href="/dashboard">/dashboard</a></p>
+              </body>
+            </html>
+          `);
         }
       });
     }

@@ -16,49 +16,10 @@ import {
 } from "@shared/schema";
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
 import * as googleService from "./googleService";
-import { isAuthenticated } from "./replitAuth";
-import emailRoutes from "./routes/email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   const apiRouter = app.route("/api");
-  
-  // Register email routes
-  app.use("/api/email", emailRoutes);
-  
-  // Import the email router from our routes/email.ts file
-  console.log("Email routes registered through router");
-  
-  // Auth user endpoint
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      console.log("Looking for user with ID:", userId);
-      
-      let user = await storage.getUser(userId);
-      
-      if (!user) {
-        console.log("User not found in storage, creating new user");
-        // Create user if not exists
-        user = await storage.upsertUser({
-          id: userId,
-          email: req.user.claims.email || null,
-          firstName: req.user.claims.first_name || null,
-          lastName: req.user.claims.last_name || null,
-          profileImageUrl: req.user.claims.profile_image_url || null,
-          role: "user"
-        });
-        console.log("Created new user:", user);
-      } else {
-        console.log("User found:", user);
-      }
-      
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching/creating user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
   
   // API endpoint to restart the application workflow
   app.post('/api/restart-workflow', (_, res) => {

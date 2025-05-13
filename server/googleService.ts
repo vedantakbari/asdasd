@@ -648,12 +648,12 @@ export async function sendGmailMessage(
 /**
  * Refresh the access token if needed
  */
-export async function refreshAccessToken(refreshToken: string): Promise<any> {
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
   const oauth2Client = createAuthClient();
   oauth2Client.setCredentials({
     refresh_token: refreshToken
   });
   
   const { credentials } = await oauth2Client.refreshAccessToken();
-  return credentials;
+  return credentials.access_token || '';
 }
