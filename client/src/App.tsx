@@ -47,15 +47,13 @@ function Router() {
 
   // Show landing pages for unauthenticated users
   if (!isAuthenticated) {
+    // Redirect to the login page
+    window.location.href = '/api/login';
     return (
-      <Switch>
-        <Route path="/" component={LandingPage} />
-        <Route path="/about" component={AboutPage} />
-        <Route path="/contact" component={ContactPage} />
-        <Route path="/faq" component={FAQPage} />
-        <Route path="/privacy" component={PrivacyPage} />
-        <Route component={LandingPage} />
-      </Switch>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+        <p className="ml-3">Redirecting to login...</p>
+      </div>
     );
   }
 
