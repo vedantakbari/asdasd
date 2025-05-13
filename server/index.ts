@@ -70,38 +70,48 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
+  console.log("[express] Environment:", app.get("env"));
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
+    console.log("[express] Using Vite development server");
   } else {
     try {
-      serveStatic(app);
-    } catch (e) {
-      console.error("Error setting up static file serving:", e);
+      console.log("[express] Using static file serving");
       
-      // Add fallback middleware if serveStatic fails
+      // Serve static files
       app.use(express.static("./dist/public"));
       
       // Add fallback catch-all route to serve index.html for all non-API routes
+      app.use("*", (req, res, next) => {
+        console.log("[express] Serving route:", req.originalUrl);
+        
+        if (req.originalUrl.startsWith("/api")) {
+          return next();
+        }
+        
+        console.log("[express] Serving index.html for client-side routing");
+        res.sendFile("index.html", { root: "./dist/public" });
+      });
+    } catch (e) {
+      console.error("Error setting up static file serving:", e);
+      
+      // Error page as ultimate fallback
       app.use("*", (req, res, next) => {
         if (req.originalUrl.startsWith("/api")) {
           return next();
         }
         
-        try {
-          res.sendFile("index.html", { root: "./dist/public" });
-        } catch (err) {
-          console.error("Error serving fallback index.html:", err);
-          res.status(200).send(`
-            <html>
-              <head><title>Home Services CRM</title></head>
-              <body>
-                <h1>Home Services CRM</h1>
-                <p>Application is running. Please try accessing a specific route like 
-                <a href="/dashboard">/dashboard</a></p>
-              </body>
-            </html>
-          `);
-        }
+        res.status(200).send(`
+          <html>
+            <head><title>Home Services CRM</title></head>
+            <body>
+              <h1>Home Services CRM</h1>
+              <p>Application is running. Please try accessing a specific route like 
+              <a href="/dashboard">/dashboard</a></p>
+            </body>
+          </html>
+        `);
       });
     }
   }
