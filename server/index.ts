@@ -93,7 +93,7 @@ app.use((req, res, next) => {
     try {
       console.log("[express] Using static file serving");
       
-      // Serve static files
+      // Serve static files - this should match the Vite build output path
       app.use(express.static("./dist/public"));
       
       // Add fallback catch-all route to serve index.html for all non-API routes

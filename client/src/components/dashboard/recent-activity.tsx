@@ -133,10 +133,8 @@ const RecentActivity: React.FC = () => {
       </CardContent>
       
       <CardFooter className="px-6 py-3 bg-gray-50 rounded-b-lg">
-        <Link href="/activities">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all activity
-          </a>
+        <Link href="/activities" className="text-sm font-medium text-primary-600 hover:text-primary-700">
+          View all activity
         </Link>
       </CardFooter>
     </Card>
