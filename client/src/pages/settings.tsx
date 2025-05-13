@@ -263,42 +263,130 @@ const Settings: React.FC = () => {
                       For Gmail integration to work properly, you need to configure your Google OAuth credentials.
                       Please follow these steps to ensure your Google OAuth is properly configured:
                     </p>
-                    <ol className="text-blue-700 text-sm space-y-2 ml-4 list-decimal mb-4">
-                      <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" className="underline">Google Cloud Console</a></li>
-                      <li>Select your project or create a new one</li>
-                      <li>Go to "Credentials" and create an OAuth Client ID</li>
-                      <li>Add the following Authorized redirect URIs to your OAuth client:</li>
-                    </ol>
-                    <div className="bg-white p-3 rounded border border-blue-200 text-xs font-mono mb-4 overflow-x-auto">
-                      {window.location.origin}/api/auth/google/callback<br/>
-                      https://workspace.brian581.repl.co/api/auth/google/callback
-                    </div>
-                    <p className="text-blue-700 text-sm mb-2">
-                      After configuring the redirect URIs in Google Cloud Console, try connecting your Gmail account again.
-                    </p>
-                    <div className="mt-4">
-                      <Button 
-                        variant="outline" 
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                        onClick={async () => {
-                          try {
-                            const response = await fetch('/api/auth/google/config');
-                            const data = await response.json();
-                            
-                            // Format the redirect URIs as a list
-                            const redirectUris = data.allPossibleRedirectURIs.map(uri => 
-                              `• ${uri}`
-                            ).join('\n');
-                            
-                            alert(`Google OAuth Configuration Details\n\nExpected callback URL: ${data.expectedCallbackUrl}\n\nConfigured callback URL: ${data.configuredCallbackUrl}\n\nAll possible redirect URIs to add to Google Cloud Console:\n${redirectUris}`);
-                          } catch (error) {
-                            console.error('Failed to check Google config:', error);
-                            alert('Error checking Google configuration');
-                          }
-                        }}
-                      >
-                        Check OAuth Configuration
-                      </Button>
+                    
+                    <div className="space-y-6">
+                      {/* Step 1: Create Google OAuth credentials */}
+                      <div>
+                        <h5 className="text-blue-800 font-medium mb-2 text-sm">Step 1: Create OAuth Credentials</h5>
+                        <ol className="text-blue-700 text-sm space-y-2 ml-4 list-decimal mb-4">
+                          <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" className="underline">Google Cloud Console</a></li>
+                          <li>Select your project or create a new one</li>
+                          <li>Go to "Credentials" and create an OAuth Client ID</li>
+                          <li>For "Application type" select "Web application"</li>
+                          <li>Add the following Authorized redirect URIs to your OAuth client:</li>
+                        </ol>
+                        <div className="bg-white p-3 rounded border border-blue-200 text-xs font-mono mb-4 overflow-x-auto">
+                          {window.location.origin}/api/auth/google/callback<br/>
+                          https://workspace.brian581.repl.co/api/auth/google/callback
+                        </div>
+                        <div className="mt-4">
+                          <Button 
+                            variant="outline" 
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/auth/google/config');
+                                const data = await response.json();
+                                
+                                // Format the redirect URIs as a list
+                                const redirectUris = data.allPossibleRedirectURIs.map(uri => 
+                                  `• ${uri}`
+                                ).join('\n');
+                                
+                                alert(`Google OAuth Configuration Details\n\nExpected callback URL: ${data.expectedCallbackUrl}\n\nConfigured callback URL: ${data.configuredCallbackUrl}\n\nAll possible redirect URIs to add to Google Cloud Console:\n${redirectUris}`);
+                              } catch (error) {
+                                console.error('Failed to check Google config:', error);
+                                alert('Error checking Google configuration');
+                              }
+                            }}
+                          >
+                            Show All Possible Redirect URIs
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Step 2: Update Google OAuth credentials in the CRM */}
+                      <div>
+                        <h5 className="text-blue-800 font-medium mb-2 text-sm">Step 2: Update Google OAuth Credentials</h5>
+                        <p className="text-blue-700 text-sm mb-4">
+                          After creating your OAuth credentials, update them below:
+                        </p>
+                        
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-2">
+                            <Label htmlFor="googleClientId" className="text-sm">Google Client ID</Label>
+                            <Input 
+                              id="googleClientId" 
+                              placeholder="Your Google Client ID (starts with 123456789012-...)" 
+                              className="font-mono text-xs"
+                              defaultValue={process.env.GOOGLE_CLIENT_ID || ""}
+                            />
+                            <p className="text-xs text-gray-500">Get this from Google Cloud Console</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-2">
+                            <Label htmlFor="googleClientSecret" className="text-sm">Google Client Secret</Label>
+                            <Input 
+                              id="googleClientSecret" 
+                              type="password"
+                              placeholder="Your Google Client Secret" 
+                              className="font-mono text-xs"
+                              defaultValue={process.env.GOOGLE_CLIENT_SECRET || ""}
+                            />
+                            <p className="text-xs text-gray-500">Keep this secret secure</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-2">
+                            <Label htmlFor="googleRedirectUri" className="text-sm">Google Redirect URI</Label>
+                            <Input 
+                              id="googleRedirectUri" 
+                              placeholder={`${window.location.origin}/api/auth/google/callback`}
+                              className="font-mono text-xs"
+                              defaultValue={process.env.GOOGLE_REDIRECT_URI || `${window.location.origin}/api/auth/google/callback`}
+                            />
+                            <p className="text-xs text-gray-500">This must match one of the redirect URIs in your Google Cloud Console</p>
+                          </div>
+                          
+                          <Button
+                            className="w-full mt-2"
+                            onClick={async () => {
+                              const clientId = (document.getElementById('googleClientId') as HTMLInputElement)?.value;
+                              const clientSecret = (document.getElementById('googleClientSecret') as HTMLInputElement)?.value;
+                              const redirectUri = (document.getElementById('googleRedirectUri') as HTMLInputElement)?.value;
+                              
+                              if (!clientId || !clientSecret || !redirectUri) {
+                                alert('Please fill in all Google OAuth credential fields');
+                                return;
+                              }
+                              
+                              try {
+                                const response = await fetch('/api/settings/google-credentials', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ 
+                                    clientId, 
+                                    clientSecret, 
+                                    redirectUri 
+                                  })
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (data.success) {
+                                  alert('Google OAuth credentials updated successfully. Please restart the server for changes to take effect.');
+                                } else {
+                                  alert(`Failed to update credentials: ${data.message || 'Unknown error'}`);
+                                }
+                              } catch (error) {
+                                console.error('Error updating Google credentials:', error);
+                                alert('Error updating Google credentials. See console for details.');
+                              }
+                            }}
+                          >
+                            Update Google OAuth Credentials
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

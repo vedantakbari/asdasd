@@ -1,37 +1,63 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 
-// Check if Google API credentials are available
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
+// Use functions to get the latest credentials from environment variables
+function getClientId() {
+  return process.env.GOOGLE_CLIENT_ID;
+}
 
-// For debugging
-console.log("Google Redirect URI:", REDIRECT_URI);
+function getClientSecret() {
+  return process.env.GOOGLE_CLIENT_SECRET;
+}
+
+function getRedirectUri() {
+  return process.env.GOOGLE_REDIRECT_URI;
+}
 
 // Get current domain for alternative redirect URI if needed
 const REPL_SLUG = process.env.REPL_SLUG;
 const REPL_OWNER = process.env.REPL_OWNER;
 const REPL_ID = process.env.REPL_ID;
-const ALT_REDIRECT_URI = REPL_SLUG && REPL_OWNER 
-  ? `https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback` 
-  : null;
+
+function getAltRedirectUri() {
+  if (REPL_SLUG && REPL_OWNER) {
+    return `https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback`;
+  }
+  return null;
+}
+
+// Initial debugging log
+console.log("Google Redirect URI:", getRedirectUri());
 
 // Log alternative URI for debugging
-if (ALT_REDIRECT_URI) {
-  console.log("Alternative Redirect URI:", ALT_REDIRECT_URI);
+const initialAltUri = getAltRedirectUri();
+if (initialAltUri) {
+  console.log("Alternative Redirect URI:", initialAltUri);
+}
+
+// Function to refresh and log current configuration
+export function refreshConfiguration() {
+  console.log("Refreshing Google OAuth configuration");
+  console.log("CLIENT_ID defined:", !!getClientId());
+  console.log("CLIENT_SECRET defined:", !!getClientSecret());
+  console.log("REDIRECT_URI:", getRedirectUri());
+  
+  const altUri = getAltRedirectUri();
+  if (altUri) {
+    console.log("Alternative Redirect URI:", altUri);
+  }
 }
 
 // Log warning if credentials are missing, but don't throw an error
 // This allows the application to start without credentials
-if (!CLIENT_ID || !CLIENT_SECRET || !REDIRECT_URI) {
+if (!getClientId() || !getClientSecret() || !getRedirectUri()) {
   console.warn('⚠️ Google API credentials are missing or incomplete. Gmail integration will not function properly.');
   console.warn('Please set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables.');
 }
 
 // Check if credentials are available
 export function hasValidCredentials(): boolean {
-  return !!(CLIENT_ID && CLIENT_SECRET && REDIRECT_URI);
+  return !!(getClientId() && getClientSecret() && getRedirectUri());
 }
 
 // Helper function to get all possible redirect URIs
@@ -39,13 +65,15 @@ export function getAllPossibleRedirectURIs(): string[] {
   const redirectURIs: string[] = [];
   
   // Add the configured redirect URI from environment variable
-  if (REDIRECT_URI) {
-    redirectURIs.push(REDIRECT_URI);
+  const configuredUri = getRedirectUri();
+  if (configuredUri) {
+    redirectURIs.push(configuredUri);
   }
   
   // Add the alternative Replit redirect URI
-  if (ALT_REDIRECT_URI) {
-    redirectURIs.push(ALT_REDIRECT_URI);
+  const altUri = getAltRedirectUri();
+  if (altUri) {
+    redirectURIs.push(altUri);
   }
   
   // Add common Replit domains if we can detect them
@@ -86,12 +114,12 @@ export function createAuthClient(): OAuth2Client {
   
   // Try to use the alternative redirect URI if the main one is failing
   // This helps when running on different Replit environments
-  const redirectUri = ALT_REDIRECT_URI || REDIRECT_URI;
+  const redirectUri = getAltRedirectUri() || getRedirectUri();
   console.log("Using redirect URI:", redirectUri);
   
   return new google.auth.OAuth2(
-    CLIENT_ID,
-    CLIENT_SECRET,
+    getClientId(),
+    getClientSecret(),
     redirectUri
   );
 }

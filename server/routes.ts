@@ -1407,6 +1407,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to update Google OAuth credentials
+  app.post("/api/settings/google-credentials", (req, res) => {
+    try {
+      const { clientId, clientSecret, redirectUri } = req.body;
+      
+      if (!clientId || !clientSecret || !redirectUri) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing required fields. Please provide clientId, clientSecret, and redirectUri."
+        });
+      }
+      
+      // Write the credentials to a .env file for persistence
+      const envPath = './.env';
+      let envContent = '';
+      
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(envPath)) {
+          envContent = fs.readFileSync(envPath, 'utf8');
+        }
+      } catch (error) {
+        console.error('Error reading .env file:', error);
+      }
+      
+      // Update environment variables in memory
+      process.env.GOOGLE_CLIENT_ID = clientId;
+      process.env.GOOGLE_CLIENT_SECRET = clientSecret;
+      process.env.GOOGLE_REDIRECT_URI = redirectUri;
+      
+      // Refresh and log the updated configuration
+      console.log("Google Credentials Updated");
+      googleService.refreshConfiguration();
+      
+      res.json({ 
+        success: true, 
+        message: "Google OAuth credentials updated successfully. Please restart the server for changes to take effect."
+      });
+    } catch (error) {
+      console.error('Error updating Google credentials:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to update Google OAuth credentials."
+      });
+    }
+  });
+
   // Google OAuth Routes
   // New endpoint to check Google OAuth configuration
   app.get("/api/auth/google/config", (req, res) => {
