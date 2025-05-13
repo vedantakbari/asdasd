@@ -38,8 +38,8 @@ const StatCard: React.FC<StatCardProps> = ({
       </CardContent>
       <div className="bg-gray-50 px-5 py-3">
         <div className="text-sm">
-          <Link href={linkUrl}>
-            <a className="font-medium text-primary-600 hover:text-primary-700">{linkText}</a>
+          <Link href={linkUrl} className="font-medium text-primary-600 hover:text-primary-700">
+            {linkText}
           </Link>
         </div>
       </div>

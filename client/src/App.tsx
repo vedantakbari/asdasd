@@ -1,9 +1,9 @@
+import React, { useState, useEffect, ErrorInfo, Suspense } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useState } from "react";
 import Sidebar from "@/components/ui/sidebar";
 import MobileSidebar from "@/components/ui/mobile-sidebar";
 import Dashboard from "@/pages/dashboard";
@@ -25,15 +25,71 @@ import FAQPage from "./pages/faq";
 import PrivacyPage from "./pages/privacy";
 import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
 
+// Error boundary class component
+class ErrorBoundary extends React.Component<{children: React.ReactNode, fallback: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode, fallback: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("App error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+
+    return this.props.children;
+  }
+}
+
+// Loading spinner component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
+  </div>
+);
+
+// Error fallback component
+const ErrorFallback = ({ error }: { error?: Error | null }) => (
+  <div className="flex flex-col items-center justify-center h-screen bg-white">
+    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+    <h1 className="text-2xl font-bold text-gray-800 mb-2">Something went wrong</h1>
+    <p className="text-gray-600 mb-6 max-w-md text-center px-4">
+      {error ? error.message : 'The application encountered an unexpected error. Please try again.'}
+    </p>
+    <div className="flex space-x-4">
+      <button
+        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-800 transition-colors"
+        onClick={() => window.location.reload()}
+      >
+        Reload Page
+      </button>
+      <a 
+        href="/api/login" 
+        className="px-4 py-2 bg-primary hover:bg-primary-dark rounded-md text-white transition-colors"
+      >
+        Sign In
+      </a>
+    </div>
+  </div>
+);
+
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, error } = useAuth();
+
+  if (error) {
+    return <ErrorFallback error={error} />;
+  }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // Public route for booking
@@ -85,6 +141,22 @@ function Router() {
 function AppContent() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const { isAuthenticated, isLoading } = useAuth();
+  const [appError, setAppError] = useState<Error | null>(null);
+  
+  // Global error handling
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error);
+      setAppError(event.error);
+    };
+    
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+  
+  if (appError) {
+    return <ErrorFallback error={appError} />;
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
@@ -122,7 +194,9 @@ function AppContent() {
       
       <Toaster />
       <div className={`flex-1 flex flex-col overflow-hidden ${!isAuthenticated || window.location.pathname.startsWith('/booking/') ? 'w-full' : ''}`}>
-        <Router />
+        <Suspense fallback={<LoadingSpinner />}>
+          <Router />
+        </Suspense>
       </div>
     </div>
   );
@@ -130,13 +204,15 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary fallback={<ErrorFallback />}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
