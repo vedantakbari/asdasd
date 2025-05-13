@@ -43,7 +43,8 @@ import {
   Calendar,
   CheckCircle,
   MailPlus,
-  ListPlus
+  ListPlus,
+  CheckSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link, useLocation } from 'wouter';
@@ -408,7 +409,7 @@ const Clients: React.FC = () => {
     }
   };
   
-  // Client card component
+  // Client card component with simplified display (only name and next action)
   const ClientCard = ({ client }: { client: Lead }) => (
     <Card 
       className="mb-3 cursor-pointer" 
@@ -420,9 +421,6 @@ const Clients: React.FC = () => {
         <div className="flex justify-between items-start mb-2">
           <div>
             <h3 className="font-medium">{client.name}</h3>
-            {client.company && (
-              <p className="text-sm text-gray-500">{client.company}</p>
-            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -488,32 +486,21 @@ const Clients: React.FC = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
-        {/* We're removing deal value and contact information from the card as requested */}
-        
-        {/* Labels */}
-        {client.labels && Array.isArray(client.labels) && client.labels.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {client.labels.slice(0, 2).map((label, idx) => (
-              <Badge key={idx} variant="outline" className="text-xs">
-                {label}
-              </Badge>
-            ))}
-            {client.labels.length > 2 && (
-              <Badge variant="outline" className="text-xs">
-                +{client.labels.length - 2}
-              </Badge>
-            )}
-          </div>
-        )}
-        
-        {/* Next activity */}
+
+        {/* Next activity - this is the only client information shown in the card */}
         {client.nextActivity && (
-          <div className="mt-2 text-xs">
+          <div className="mt-2 text-xs text-gray-600">
             <span className="font-medium">Next:</span> {client.nextActivity}
             {client.nextActivityDate && (
               <span className="text-gray-500"> ({format(new Date(client.nextActivityDate), 'MMM d')})</span>
             )}
+          </div>
+        )}
+        
+        {/* Show prompt if no next activity */}
+        {!client.nextActivity && (
+          <div className="mt-2 text-xs text-gray-500 italic">
+            No upcoming activity
           </div>
         )}
       </CardContent>
@@ -546,6 +533,78 @@ const Clients: React.FC = () => {
             {client.company && (
               <DialogDescription>{client.company}</DialogDescription>
             )}
+            <div className="flex space-x-2 mt-3">
+              <Button size="sm" className="bg-primary" onClick={() => {
+                if (client.email) {
+                  // Log this email activity
+                  const activity = {
+                    userId: 1,
+                    activityType: "email_initiated",
+                    description: `Email initiated to ${client.name}`,
+                    entityType: "lead",
+                    entityId: client.id
+                  };
+                  
+                  apiRequest("POST", "/api/activities", activity)
+                    .then(() => {
+                      queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+                      
+                      // Store compose data in session storage
+                      sessionStorage.setItem('composeEmail', JSON.stringify({
+                        to: client.email,
+                        subject: '',
+                        body: '',
+                        open: true,
+                        leadId: client.id
+                      }));
+                      
+                      // Redirect to inbox tab
+                      window.location.href = '/inbox';
+                    });
+                } else {
+                  toast({
+                    title: "Error",
+                    description: "No email address available for this client",
+                    variant: "destructive"
+                  });
+                }
+              }}>
+                <Mail className="h-4 w-4 mr-2" />
+                Email Client
+              </Button>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Activity
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => {
+                    // Redirect to calendar with new appointment page and this client pre-selected
+                    window.location.href = `/calendar?clientId=${client.id}&action=new`;
+                  }}>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Appointment
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    // Redirect to tasks with new task page and this client pre-selected
+                    window.location.href = `/tasks?clientId=${client.id}&action=new`;
+                  }}>
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    Create Task
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    // Redirect to tasks with new task page and this client pre-selected
+                    window.location.href = `/tasks?clientId=${client.id}&action=new&type=call`;
+                  }}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Schedule Call
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </DialogHeader>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

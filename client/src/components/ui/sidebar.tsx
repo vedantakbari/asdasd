@@ -1,7 +1,10 @@
 import { Link, useLocation } from "wouter";
+import { AuthButton } from "@/components/auth/auth-button";
+import { useAuth } from "@/components/auth/auth-provider";
 
 const Sidebar = () => {
   const [location] = useLocation();
+  const { user, isAuthenticated } = useAuth();
 
   const isActive = (path: string) => location === path;
 
@@ -156,14 +159,25 @@ const Sidebar = () => {
       </div>
       
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center">
-          <img className="h-8 w-8 rounded-full" 
-               src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80" 
-               alt="User avatar" />
-          <div className="ml-3">
-            <p className="text-sm font-medium text-gray-700">Michael Scott</p>
-            <p className="text-xs font-medium text-gray-500">Pro Plan</p>
-          </div>
+        <div className="flex items-center justify-between">
+          {isAuthenticated && user ? (
+            <div className="flex items-center">
+              <img className="h-8 w-8 rounded-full object-cover" 
+                  src={user.profileImageUrl || "https://ui-avatars.com/api/?name=" + (user.firstName || user.email?.split('@')[0] || 'User')} 
+                  alt="User avatar" />
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-700">
+                  {user.firstName || user.email?.split('@')[0] || 'User'}
+                </p>
+                <p className="text-xs font-medium text-gray-500">Pro Plan</p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium text-gray-700">Not signed in</p>
+            </div>
+          )}
+          <AuthButton />
         </div>
       </div>
     </aside>

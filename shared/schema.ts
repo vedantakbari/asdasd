@@ -1,27 +1,42 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, doublePrecision, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, doublePrecision, varchar, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User schema
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User schema updated for Replit Auth
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  fullName: text("full_name").notNull(),
-  email: text("email").notNull(),
-  avatar: text("avatar"),
+  id: varchar("id").primaryKey().notNull(), // User ID from Replit Auth
+  email: varchar("email", { length: 255 }),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  profileImageUrl: varchar("profile_image_url", { length: 255 }),
   role: text("role").default("user").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  fullName: true,
+  id: true,
   email: true,
-  avatar: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
   role: true,
 });
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof users.$inferSelect;
+export type UpsertUser = InsertUser;
 
 // Lead status enum
 export const LeadStatus = {
@@ -269,8 +284,6 @@ export const insertGoogleCalendarSettingsSchema = createInsertSchema(googleCalen
 });
 
 // Type definitions
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -302,9 +315,15 @@ export const emailAccounts = pgTable("email_accounts", {
   userId: integer("user_id").notNull().references(() => users.id),
   provider: text("provider").notNull(), // gmail, outlook, imap, etc.
   email: text("email").notNull(),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  expiresAt: timestamp("expires_at"),
+  password: text("password"), // Encrypted password for SMTP
+  displayName: text("display_name"), // Display name for email sending
+  smtpHost: text("smtp_host"), // SMTP server host
+  smtpPort: text("smtp_port"), // SMTP server port
+  useSSL: boolean("use_ssl").default(false), // Whether to use SSL for SMTP
+  accessToken: text("access_token"), // For OAuth
+  refreshToken: text("refresh_token"), // For OAuth
+  expiresAt: timestamp("expires_at"), // For OAuth
+  isDefault: boolean("is_default").default(false), // Whether this is the default account
   connected: boolean("connected").default(false),
   lastSynced: timestamp("last_synced"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -317,8 +336,36 @@ export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({
   updatedAt: true,
 });
 
+// Email Message schema for storing emails
+export const emailMessages = pgTable("email_messages", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => emailAccounts.id),
+  externalId: text("external_id"), // ID from external email provider
+  from: text("from").notNull(),
+  fromName: text("from_name"),
+  to: text("to").notNull(),
+  toName: text("to_name"),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  htmlBody: text("html_body"),
+  read: boolean("read").default(false),
+  folder: text("folder").default("inbox").notNull(), // inbox, sent, drafts, etc.
+  relatedLeadId: integer("related_lead_id"),
+  relatedCustomerId: integer("related_customer_id"),
+  sentDate: timestamp("sent_date").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEmailMessageSchema = createInsertSchema(emailMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type EmailAccount = typeof emailAccounts.$inferSelect;
 export type InsertEmailAccount = z.infer<typeof insertEmailAccountSchema>;
+
+export type EmailMessage = typeof emailMessages.$inferSelect;
+export type InsertEmailMessage = z.infer<typeof insertEmailMessageSchema>;
 
 // Pipeline type
 export type Pipeline = typeof pipelines.$inferSelect;

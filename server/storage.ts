@@ -1,5 +1,5 @@
 import { 
-  users, type User, type InsertUser,
+  users, type User, type UpsertUser,
   leads, type Lead, type InsertLead,
   deals, type Deal, type InsertDeal,
   customers, type Customer, type InsertCustomer,
@@ -9,15 +9,17 @@ import {
   activities, type Activity, type InsertActivity,
   googleCalendarSettings, type GoogleCalendarSettings, type InsertGoogleCalendarSettings,
   emailAccounts, type EmailAccount, type InsertEmailAccount,
+  emailMessages, type EmailMessage, type InsertEmailMessage,
   pipelines, type Pipeline, type InsertPipeline,
   LeadStatus, DealStage, TaskPriority, TaskStatus, KanbanLane
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Users
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(userData: UpsertUser): Promise<User>;
   
   // Google Calendar Integration
   getGoogleCalendarSettings(userId: number): Promise<GoogleCalendarSettings | undefined>;
@@ -25,11 +27,19 @@ export interface IStorage {
   updateGoogleCalendarSettings(userId: number, settings: Partial<InsertGoogleCalendarSettings>): Promise<GoogleCalendarSettings | undefined>;
   
   // Email Integration
-  getEmailAccounts(userId: number): Promise<EmailAccount[]>;
+  getEmailAccounts(): Promise<EmailAccount[]>;
+  getEmailAccountsByUser(userId: string): Promise<EmailAccount[]>;
   getEmailAccount(id: number): Promise<EmailAccount | undefined>;
   createEmailAccount(account: InsertEmailAccount): Promise<EmailAccount>;
   updateEmailAccount(id: number, account: Partial<InsertEmailAccount>): Promise<EmailAccount | undefined>;
   deleteEmailAccount(id: number): Promise<boolean>;
+  
+  // Email Messages
+  getEmailMessages(accountId: number, folder?: string): Promise<EmailMessage[]>;
+  getEmailMessage(id: number): Promise<EmailMessage | undefined>;
+  saveEmailMessage(message: InsertEmailMessage): Promise<EmailMessage>;
+  updateEmailMessage(accountId: number, messageId: string, updateData: Partial<EmailMessage>): Promise<EmailMessage | undefined>;
+  deleteEmailMessage(id: number): Promise<boolean>;
   
   // Leads
   getLeads(): Promise<Lead[]>;
@@ -152,7 +162,16 @@ export class MemStorage implements IStorage {
   }
 
   // Users
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string | number): Promise<User | undefined> {
+    if (typeof id === 'string') {
+      // For string IDs (from Replit Auth), check each user
+      for (const user of this.users.values()) {
+        if (user.id.toString() === id) {
+          return user;
+        }
+      }
+      return undefined;
+    }
     return this.users.get(id);
   }
 
@@ -169,6 +188,22 @@ export class MemStorage implements IStorage {
       ...insertUser, 
       id, 
       createdAt: now
+    };
+    this.users.set(id, user);
+    return user;
+  }
+  
+  // Add upsertUser method for Replit Auth
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    // For now, we'll create a new user in memory storage
+    // In an actual database implementation, we'd use an upsert operation
+    const id = this.userId++;
+    const now = new Date();
+    const user: User = {
+      ...userData,
+      id,
+      createdAt: now,
+      updatedAt: now
     };
     this.users.set(id, user);
     return user;
