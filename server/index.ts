@@ -8,8 +8,18 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check route for API
+// Add health check routes - both for API and root path (for Cloud Run)
 app.get("/api/health", (_req, res) => {
+  res.status(200).send("OK");
+});
+
+// Add root health check that responds immediately for Cloud Run
+app.get("/", (req, res, next) => {
+  // If request accepts HTML, pass to the next handler for proper landing page
+  if (req.accepts('html')) {
+    return next();
+  }
+  // For health checks, respond immediately
   res.status(200).send("OK");
 });
 
