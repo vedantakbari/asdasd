@@ -142,10 +142,8 @@ const TaskList: React.FC = () => {
       )}
       
       <CardFooter className="px-6 py-4 bg-gray-50 rounded-b-lg">
-        <Link href="/tasks">
-          <a className="text-sm font-medium text-primary-600 hover:text-primary-700">
-            View all tasks
-          </a>
+        <Link href="/tasks" className="text-sm font-medium text-primary-600 hover:text-primary-700">
+          View all tasks
         </Link>
       </CardFooter>
     </Card>
