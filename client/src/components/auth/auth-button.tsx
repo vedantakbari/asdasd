@@ -5,16 +5,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, LogOut } from "lucide-react";
 
 export const AuthButton = () => {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated, login, logout } = useAuth();
   const { toast } = useToast();
 
   const handleAuth = () => {
     if (isAuthenticated) {
-      // Redirect to logout endpoint
-      window.location.href = '/api/logout';
+      // Use the logout function from auth context
+      logout();
     } else {
-      // Redirect to login endpoint
-      window.location.href = '/api/login';
+      // Use the login function from auth context
+      login();
     }
   };
 

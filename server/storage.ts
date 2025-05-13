@@ -118,6 +118,7 @@ export class MemStorage implements IStorage {
   private activities: Map<number, Activity>;
   private googleCalendarSettings: Map<number, GoogleCalendarSettings>;
   private emailAccounts: Map<number, EmailAccount>;
+  private emailMessages: Map<number, EmailMessage>;
   private pipelines: Map<number, Pipeline>;
   
   private userId: number;
@@ -130,6 +131,7 @@ export class MemStorage implements IStorage {
   private activityId: number;
   private googleCalendarSettingsId: number;
   private emailAccountId: number;
+  private emailMessageId: number;
   private pipelineId: number;
 
   constructor() {
@@ -143,6 +145,7 @@ export class MemStorage implements IStorage {
     this.activities = new Map();
     this.googleCalendarSettings = new Map();
     this.emailAccounts = new Map();
+    this.emailMessages = new Map();
     this.pipelines = new Map();
     
     this.userId = 1;
@@ -155,6 +158,7 @@ export class MemStorage implements IStorage {
     this.activityId = 1;
     this.googleCalendarSettingsId = 1;
     this.emailAccountId = 1;
+    this.emailMessageId = 1;
     this.pipelineId = 1;
     
     // Add some sample data for testing

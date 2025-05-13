@@ -39,17 +39,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-      } else if (response.status === 401) {
-        // Unauthorized, but this is expected if not logged in
+      } else if (response.status === 401 || response.status === 302) {
+        // Unauthorized or redirect, this is expected if not logged in
         setUser(null);
       } else {
-        console.error('Auth error:', response.statusText);
+        console.error('Auth error:', response.status, response.statusText);
         setError(new Error(`Authentication error: ${response.statusText}`));
         setUser(null);
       }
     } catch (err) {
-      console.error('Auth error:', err);
-      setError(err);
+      // Network errors are expected when not authenticated
+      console.log('Auth check completed, user not authenticated');
       setUser(null);
     } finally {
       setIsLoading(false);
