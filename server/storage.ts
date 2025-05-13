@@ -675,7 +675,22 @@ export class MemStorage implements IStorage {
     const newMessage: EmailMessage = {
       id,
       createdAt: new Date(),
-      ...message
+      accountId: message.accountId,
+      messageId: message.messageId || null,
+      externalId: message.externalId || null,
+      from: message.from,
+      fromName: message.fromName || null,
+      to: message.to,
+      toName: message.toName || null,
+      subject: message.subject,
+      textBody: message.textBody || null,
+      htmlBody: message.htmlBody || null,
+      read: message.read !== undefined ? message.read : false,
+      folder: message.folder || 'inbox',
+      relatedLeadId: message.relatedLeadId || null,
+      relatedCustomerId: message.relatedCustomerId || null,
+      sentDate: message.sentDate || null,
+      receivedDate: message.receivedDate || null
     };
     
     this.emailMessages.set(id, newMessage);

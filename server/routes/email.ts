@@ -256,7 +256,7 @@ router.patch('/:accountId/messages/:messageId', isAuthenticated, async (req: any
     }
     
     // Update the message
-    const updatedMessage = await storage.updateEmailMessage(message.id, updateData);
+    const updatedMessage = await storage.updateEmailMessage(accountId, messageId, updateData);
     
     if (updatedMessage) {
       res.json(updatedMessage);

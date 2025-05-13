@@ -340,19 +340,21 @@ export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({
 export const emailMessages = pgTable("email_messages", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull().references(() => emailAccounts.id),
+  messageId: text("message_id"), // Unique message ID (for SMTP/IMAP)
   externalId: text("external_id"), // ID from external email provider
   from: text("from").notNull(),
   fromName: text("from_name"),
   to: text("to").notNull(),
   toName: text("to_name"),
   subject: text("subject").notNull(),
-  body: text("body").notNull(),
+  textBody: text("text_body"),
   htmlBody: text("html_body"),
   read: boolean("read").default(false),
   folder: text("folder").default("inbox").notNull(), // inbox, sent, drafts, etc.
   relatedLeadId: integer("related_lead_id"),
   relatedCustomerId: integer("related_customer_id"),
-  sentDate: timestamp("sent_date").defaultNow(),
+  sentDate: timestamp("sent_date"),
+  receivedDate: timestamp("received_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
