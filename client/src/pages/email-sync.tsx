@@ -29,6 +29,8 @@ const EmailSync: React.FC = () => {
   // State for email accounts
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
   const [isConnectingEmail, setIsConnectingEmail] = useState(false);
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
   
   // State for sender name
   const [senderName, setSenderName] = useState("");
@@ -163,9 +165,7 @@ const EmailSync: React.FC = () => {
     }
   };
   
-  // State for new email account
-  const [newEmail, setNewEmail] = useState("");
-  const [showEmailInput, setShowEmailInput] = useState(false);
+  // NOTE: newEmail and showEmailInput are already declared above
   
   // Connect Gmail account
   const connectGmailAccount = async () => {
