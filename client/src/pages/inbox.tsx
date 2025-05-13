@@ -268,47 +268,73 @@ const Inbox: React.FC = () => {
   // Send email mutation
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { accountId: number, to: string, subject: string, body: string, leadId?: number }) => {
-      // We'll add leadId to the request if we have one
+      // Make the API request
       const res = await apiRequest('POST', '/api/email/send', data);
+      
+      // Check for API errors
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to send email');
+      }
+      
       return res.json();
     },
     onSuccess: (data, variables) => {
+      console.log('Email sent successfully:', data);
+      
+      // Refresh email messages list
       queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
       
-      // If we're sending to a lead/client, log it as an activity
+      // The server now creates an activity automatically, but we still need to
+      // invalidate the activities queries to reflect the new activity
       if (variables.leadId) {
-        // Create an activity record for this email
-        const activity = {
-          userId: 1,
-          activityType: "email_sent",
-          description: `Email sent to ${variables.to} with subject: ${variables.subject}`,
-          entityType: "lead",
-          entityId: variables.leadId
-        };
+        // Invalidate any activities queries that might be affected
+        queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/activities/entity/lead/' + variables.leadId] });
         
-        apiRequest("POST", "/api/activities", activity)
-          .then(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/activities'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/activities/entity/lead/' + variables.leadId] });
-          })
-          .catch(error => {
-            console.error("Failed to log email activity:", error);
-          });
+        toast({
+          title: 'Email Sent to Client',
+          description: 'Your email has been sent successfully and recorded in client history.',
+        });
+      } else {
+        toast({
+          title: 'Email Sent',
+          description: 'Your email has been sent successfully.',
+        });
       }
       
+      // Clear the compose form and close the dialog
       setIsComposeOpen(false);
-      setComposeData({ to: '', subject: '', body: '' });
-      toast({
-        title: 'Email Sent',
-        description: 'Your email has been sent successfully.',
+      setComposeData({
+        to: '',
+        subject: '',
+        body: ''
       });
+      
+      // After sending, clear lead ID
+      setLeadId(undefined);
     },
-    onError: () => {
-      toast({
-        title: 'Failed to Send Email',
-        description: 'There was an error sending your email.',
-        variant: 'destructive'
-      });
+    onError: (error: any) => {
+      console.error('Failed to send email:', error);
+      
+      // Check for authentication errors
+      if (error.message && (
+        error.message.includes('Authentication failed') || 
+        error.message.includes('AUTH_FAILED') ||
+        error.message.includes('AUTH_REFRESH_FAILED')
+      )) {
+        toast({
+          title: 'Authentication Error',
+          description: 'Your email account needs to be reconnected. Please go to settings to reconnect your account.',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Failed to Send Email',
+          description: error.message || 'There was an error sending your email.',
+          variant: 'destructive'
+        });
+      }
     }
   });
   
