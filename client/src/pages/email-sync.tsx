@@ -438,6 +438,45 @@ const EmailSync: React.FC = () => {
             </CardContent>
           </Card>
           
+          {/* Troubleshooting section */}
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="pt-6">
+              <h2 className="text-xl font-medium mb-4 flex items-center text-amber-800">
+                <Info className="h-5 w-5 mr-2" />
+                Important: Configure Google Redirect URI
+              </h2>
+              
+              <div className="space-y-4">
+                <p className="text-amber-700">
+                  If you see "accounts.google.com refused to connect" when trying to connect Gmail, you need to configure your Google Cloud OAuth settings:
+                </p>
+                
+                <ol className="list-decimal pl-5 text-amber-700 space-y-2">
+                  <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" className="text-blue-600 underline">Google Cloud Console Credentials</a></li>
+                  <li>Click on your OAuth 2.0 Client ID that you're using</li>
+                  <li>Under "Authorized redirect URIs" click "ADD URI"</li>
+                  <li>Add the following URI (exactly as shown):</li>
+                </ol>
+                
+                <div className="bg-white p-3 rounded border border-amber-200 font-mono text-sm break-all">
+                  {window.location.origin}/api/auth/google/callback
+                </div>
+                
+                <p className="text-amber-700">
+                  After adding this URI, click "SAVE" and wait a few minutes for Google's systems to update before trying again.
+                </p>
+                
+                <div className="bg-white p-3 rounded border border-amber-200">
+                  <p className="font-semibold text-amber-800">Tip:</p>
+                  <p className="text-sm text-amber-700">
+                    If you're using a temporary Replit URL, you'll need to update this redirect URI each time 
+                    the URL changes. For production, use a permanent domain.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           {/* Connected accounts */}
           {emailAccounts.length > 0 && (
             <Card>
