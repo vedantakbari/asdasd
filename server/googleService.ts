@@ -161,7 +161,7 @@ export async function getTokens(code: string): Promise<any> {
   const oauth2Client = createAuthClient();
   
   try {
-    console.log('Exchanging authorization code for tokens');
+    console.log('Exchanging authorization code for tokens using redirect URI:', getRedirectUri());
     const { tokens } = await oauth2Client.getToken(code);
     console.log('Successfully obtained tokens');
     
@@ -169,18 +169,33 @@ export async function getTokens(code: string): Promise<any> {
       console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
     }
     
+    // Update environment variable with successful redirect URI
+    if (getRedirectUri() !== process.env.GOOGLE_REDIRECT_URI) {
+      console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', getRedirectUri());
+      process.env.GOOGLE_REDIRECT_URI = getRedirectUri();
+    }
+    
     return tokens;
   } catch (error) {
     console.error('Error exchanging code for tokens with default redirect URI:', error);
+    console.error('Error message:', error.message);
+    
+    // Specific error handling for redirect URI mismatch
+    if (error.message && error.message.includes('redirect_uri_mismatch')) {
+      console.error('Detected redirect URI mismatch. Trying with all possible URIs...');
+    }
     
     // If the first attempt fails, try with all possible redirect URIs
     const allRedirectURIs = getAllPossibleRedirectURIs();
+    console.log('All possible redirect URIs:', allRedirectURIs);
+    
     if (allRedirectURIs.length > 1) {
       console.log('Trying alternative redirect URIs...');
       
       for (const redirectURI of allRedirectURIs) {
         // Skip the one we already tried
-        if (redirectURI === getRedirectUri() || redirectURI === getAltRedirectUri()) {
+        if (redirectURI === getRedirectUri()) {
+          console.log(`Skipping already tried redirect URI: ${redirectURI}`);
           continue;
         }
         
@@ -193,7 +208,11 @@ export async function getTokens(code: string): Promise<any> {
           );
           
           const { tokens } = await altClient.getToken(code);
-          console.log('Successfully obtained tokens with alternative redirect URI');
+          console.log('Successfully obtained tokens with alternative redirect URI:', redirectURI);
+          
+          // Update environment variable with successful redirect URI
+          console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', redirectURI);
+          process.env.GOOGLE_REDIRECT_URI = redirectURI;
           
           if (!tokens.refresh_token) {
             console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
@@ -202,6 +221,7 @@ export async function getTokens(code: string): Promise<any> {
           return tokens;
         } catch (altError) {
           console.error(`Failed with alternative redirect URI ${redirectURI}:`, altError);
+          console.error('Error message:', altError.message);
         }
       }
     }

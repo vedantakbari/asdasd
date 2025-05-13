@@ -1557,17 +1557,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   app.get("/api/auth/google/callback", async (req, res) => {
+    console.log("Google OAuth callback received");
+    console.log("Query parameters:", req.query);
+    
+    // Check for error from Google
+    if (req.query.error) {
+      console.error('Google OAuth error:', req.query.error);
+      return res.redirect(`/inbox?status=error&reason=${req.query.error}`);
+    }
+    
     try {
       const { code, state } = req.query;
       
       if (!code) {
-        return res.status(400).json({ message: "Authorization code is required" });
+        console.error('No code received from Google OAuth.');
+        return res.redirect('/inbox?status=error&reason=no_code');
       }
+      
+      console.log('Exchanging code for tokens...');
       
       // Exchange code for tokens
       const tokens = await googleService.getTokens(code as string);
       
+      console.log('Tokens received:', tokens ? 'success' : 'failure');
+      
+      if (!tokens || !tokens.access_token) {
+        console.error('Failed to get access token.');
+        return res.redirect('/inbox?status=error&reason=token_exchange_failed');
+      }
+      
       // Get user info
+      console.log('Getting user info with access token...');
       const userInfo = await googleService.getUserInfo(tokens.access_token);
       
       // Get user ID from state
@@ -1576,6 +1596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const parsedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
           userId = parsedState.userId || 1;
+          console.log('Parsed state, userId:', userId);
         } catch (e) {
           console.error("Error parsing state:", e);
         }
@@ -1678,7 +1699,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.redirect(`/inbox?status=success&accountId=${accountId}`);
     } catch (error) {
       console.error("Error in Google OAuth callback:", error);
-      res.redirect('/inbox?status=error');
+      console.error("Error details:", error.message);
+      console.error("Stack trace:", error.stack);
+      
+      // Add more details to the error redirect
+      let errorReason = 'unknown';
+      if (error.message) {
+        if (error.message.includes('invalid_grant')) {
+          errorReason = 'invalid_grant';
+        } else if (error.message.includes('invalid_client')) {
+          errorReason = 'invalid_client';
+        } else if (error.message.includes('redirect_uri_mismatch')) {
+          errorReason = 'redirect_uri_mismatch';
+        } else {
+          errorReason = encodeURIComponent(error.message.substring(0, 50));
+        }
+      }
+      
+      res.redirect(`/inbox?status=error&reason=${errorReason}`);
     }
   });
   
