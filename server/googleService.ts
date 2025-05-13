@@ -68,12 +68,42 @@ export function getAllPossibleRedirectURIs(): string[] {
   const configuredUri = getRedirectUri();
   if (configuredUri) {
     redirectURIs.push(configuredUri);
+    
+    // Extract the domain from the configured URI
+    const configuredUriObj = new URL(configuredUri);
+    const configuredDomain = configuredUriObj.hostname;
+    
+    // Add variants of the configured domain
+    const domainVariants = generateDomainVariants(configuredDomain);
+    for (const variant of domainVariants) {
+      if (variant !== configuredDomain) {
+        const newUri = configuredUri.replace(configuredDomain, variant);
+        redirectURIs.push(newUri);
+      }
+    }
   }
   
   // Add the alternative Replit redirect URI
   const altUri = getAltRedirectUri();
   if (altUri) {
     redirectURIs.push(altUri);
+    
+    // Extract domain from altUri and add variants
+    try {
+      const altUriObj = new URL(altUri);
+      const altDomain = altUriObj.hostname;
+      
+      // Generate domain variants for the alternative domain
+      const altDomainVariants = generateDomainVariants(altDomain);
+      for (const variant of altDomainVariants) {
+        if (variant !== altDomain) {
+          const newUri = altUri.replace(altDomain, variant);
+          redirectURIs.push(newUri);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing alternative URI:', error);
+    }
   }
   
   // Add common Replit domains if we can detect them
@@ -83,15 +113,28 @@ export function getAllPossibleRedirectURIs(): string[] {
     redirectURIs.push(`https://${REPL_ID}.id.replit.app/api/auth/google/callback`);
     redirectURIs.push(`https://${REPL_ID}.id.replit.dev/api/auth/google/callback`);
     
+    // Add variants with hyphens
+    redirectURIs.push(`https://-${REPL_ID}.id.repl.co/api/auth/google/callback`);
+    redirectURIs.push(`https://-${REPL_ID}.id.replit.app/api/auth/google/callback`);
+    redirectURIs.push(`https://-${REPL_ID}.id.replit.dev/api/auth/google/callback`);
+    
     // Add Replit preview domains if we can detect the slug and owner
     if (REPL_SLUG && REPL_OWNER) {
-      redirectURIs.push(`https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback`);
-      redirectURIs.push(`https://${REPL_SLUG}-${REPL_OWNER}.repl.co/api/auth/google/callback`);
+      const baseDomains = [
+        `https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback`,
+        `https://${REPL_SLUG}-${REPL_OWNER}.repl.co/api/auth/google/callback`,
+        `https://${REPL_SLUG}.${REPL_OWNER}.replit.dev/api/auth/google/callback`,
+        `https://${REPL_SLUG}-${REPL_OWNER}.replit.dev/api/auth/google/callback`
+      ];
+      
+      for (const domain of baseDomains) {
+        redirectURIs.push(domain);
+      }
     }
   }
   
-  // Remove duplicates
-  return [...new Set(redirectURIs)];
+  // Remove duplicates and sort for readability
+  return [...new Set(redirectURIs)].sort();
 }
 
 // Define the scopes we need for Gmail access
@@ -139,6 +182,48 @@ export function createAuthClient(forceNew: boolean = false, specificRedirectUri?
 /**
  * Generate the authorization URL
  */
+// Helper function to generate domain variants for a given domain
+export function generateDomainVariants(domain: string): string[] {
+  const variants: string[] = [];
+  
+  if (!domain) return variants;
+  
+  // Add the original domain
+  variants.push(domain);
+  
+  // Handle replit.dev domains
+  if (domain.includes('.replit.dev')) {
+    // Add repl.co variant
+    variants.push(domain.replace('.replit.dev', '.repl.co'));
+    
+    // Add variant with hyphen prefix (common in Replit)
+    if (!domain.startsWith('-')) {
+      const parts = domain.split('.');
+      if (parts.length >= 3) {
+        const hyphenVariant = `-${parts[0]}.${parts.slice(1).join('.')}`;
+        variants.push(hyphenVariant);
+      }
+    }
+  }
+  
+  // Handle repl.co domains
+  if (domain.includes('.repl.co')) {
+    // Add replit.dev variant
+    variants.push(domain.replace('.repl.co', '.replit.dev'));
+    
+    // Add variant with hyphen prefix
+    if (!domain.startsWith('-')) {
+      const parts = domain.split('.');
+      if (parts.length >= 3) {
+        const hyphenVariant = `-${parts[0]}.${parts.slice(1).join('.')}`;
+        variants.push(hyphenVariant);
+      }
+    }
+  }
+  
+  return [...new Set(variants)]; // Remove duplicates
+}
+
 export function getAuthUrl(state?: string): string {
   if (!hasValidCredentials()) {
     throw new Error('Cannot generate auth URL: Google API credentials are missing or incomplete');
@@ -157,6 +242,9 @@ export function getAuthUrl(state?: string): string {
       domainInfo.domain = decodedState.domain || '';
       domainInfo.callbackUrl = decodedState.callbackUrl || '';
       domainInfo.protocol = decodedState.protocol || 'https';
+      
+      console.log('Auth request with state containing domain:', domainInfo.domain);
+      console.log('Auth request with state containing callback URL:', domainInfo.callbackUrl);
     } catch (e) {
       console.error('Failed to decode state for domain extraction:', e);
     }
@@ -193,83 +281,132 @@ export function getAuthUrl(state?: string): string {
 /**
  * Exchange authorization code for tokens
  */
-export async function getTokens(code: string): Promise<any> {
+export async function getTokens(code: string, providedRedirectUri?: string): Promise<any> {
   if (!hasValidCredentials()) {
     throw new Error('Cannot exchange token: Google API credentials are missing or incomplete');
   }
   
-  // Try with the default redirect URI first
-  const oauth2Client = createAuthClient();
+  console.log('Token exchange attempt for code:', code ? 'code-present' : 'no-code');
   
-  try {
-    console.log('Exchanging authorization code for tokens using redirect URI:', getRedirectUri());
-    const { tokens } = await oauth2Client.getToken(code);
-    console.log('Successfully obtained tokens');
+  // Track all our attempts
+  const attemptedUris: string[] = [];
+  let lastError: any = null;
+  
+  // If a specific redirect URI was provided, try that first
+  if (providedRedirectUri) {
+    console.log('Trying token exchange with provided redirect URI:', providedRedirectUri);
+    attemptedUris.push(providedRedirectUri);
     
-    if (!tokens.refresh_token) {
-      console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
-    }
-    
-    // Update environment variable with successful redirect URI
-    if (getRedirectUri() !== process.env.GOOGLE_REDIRECT_URI) {
-      console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', getRedirectUri());
-      process.env.GOOGLE_REDIRECT_URI = getRedirectUri();
-    }
-    
-    return tokens;
-  } catch (error) {
-    console.error('Error exchanging code for tokens with default redirect URI:', error);
-    console.error('Error message:', error.message);
-    
-    // Specific error handling for redirect URI mismatch
-    if (error.message && error.message.includes('redirect_uri_mismatch')) {
-      console.error('Detected redirect URI mismatch. Trying with all possible URIs...');
-    }
-    
-    // If the first attempt fails, try with all possible redirect URIs
-    const allRedirectURIs = getAllPossibleRedirectURIs();
-    console.log('All possible redirect URIs:', allRedirectURIs);
-    
-    if (allRedirectURIs.length > 1) {
-      console.log('Trying alternative redirect URIs...');
+    try {
+      const specificClient = new google.auth.OAuth2(
+        getClientId(),
+        getClientSecret(),
+        providedRedirectUri
+      );
       
-      for (const redirectURI of allRedirectURIs) {
-        // Skip the one we already tried
-        if (redirectURI === getRedirectUri()) {
-          console.log(`Skipping already tried redirect URI: ${redirectURI}`);
-          continue;
-        }
-        
-        try {
-          console.log(`Trying with redirect URI: ${redirectURI}`);
-          const altClient = new google.auth.OAuth2(
-            getClientId(),
-            getClientSecret(),
-            redirectURI
-          );
-          
-          const { tokens } = await altClient.getToken(code);
-          console.log('Successfully obtained tokens with alternative redirect URI:', redirectURI);
-          
-          // Update environment variable with successful redirect URI
-          console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', redirectURI);
-          process.env.GOOGLE_REDIRECT_URI = redirectURI;
-          
-          if (!tokens.refresh_token) {
-            console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
-          }
-          
-          return tokens;
-        } catch (altError) {
-          console.error(`Failed with alternative redirect URI ${redirectURI}:`, altError);
-          console.error('Error message:', altError.message);
-        }
+      const { tokens } = await specificClient.getToken(code);
+      console.log('Successfully obtained tokens with provided redirect URI!');
+      
+      // Update environment variable with successful redirect URI
+      console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', providedRedirectUri);
+      process.env.GOOGLE_REDIRECT_URI = providedRedirectUri;
+      
+      if (!tokens.refresh_token) {
+        console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
       }
+      
+      return tokens;
+    } catch (error) {
+      console.error('Failed with provided redirect URI:', error.message);
+      lastError = error;
+      // Continue to try other URIs
+    }
+  }
+  
+  // Try with the default redirect URI if we haven't already
+  const defaultUri = getRedirectUri();
+  if (defaultUri && !attemptedUris.includes(defaultUri)) {
+    console.log('Trying token exchange with default redirect URI:', defaultUri);
+    attemptedUris.push(defaultUri);
+    
+    try {
+      const defaultClient = new google.auth.OAuth2(
+        getClientId(),
+        getClientSecret(),
+        defaultUri
+      );
+      
+      const { tokens } = await defaultClient.getToken(code);
+      console.log('Successfully obtained tokens with default redirect URI!');
+      
+      if (!tokens.refresh_token) {
+        console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
+      }
+      
+      return tokens;
+    } catch (error) {
+      console.error('Failed with default redirect URI:', error.message);
+      lastError = error;
+      // Continue to try other URIs
+    }
+  }
+  
+  // Try all possible redirect URIs systematically
+  console.log('Trying token exchange with all possible redirect URIs...');
+  const allRedirectURIs = getAllPossibleRedirectURIs();
+  
+  // Log all the URIs we're going to try
+  console.log(`Found ${allRedirectURIs.length} possible redirect URIs to try:`, 
+    allRedirectURIs.map(uri => uri.split('/api/auth/google/callback')[0]).join('\n')
+  );
+  
+  for (const redirectURI of allRedirectURIs) {
+    // Skip URIs we've already tried
+    if (attemptedUris.includes(redirectURI)) {
+      console.log(`Skipping already tried redirect URI: ${redirectURI}`);
+      continue;
     }
     
-    // If all attempts fail, throw the original error
-    throw error;
+    console.log(`Attempting token exchange with URI: ${redirectURI}`);
+    attemptedUris.push(redirectURI);
+    
+    try {
+      const client = new google.auth.OAuth2(
+        getClientId(),
+        getClientSecret(),
+        redirectURI
+      );
+      
+      const { tokens } = await client.getToken(code);
+      console.log('Successfully obtained tokens with redirect URI:', redirectURI);
+      
+      // Update environment variable with successful redirect URI
+      console.log('Updating GOOGLE_REDIRECT_URI with successful URI:', redirectURI);
+      process.env.GOOGLE_REDIRECT_URI = redirectURI;
+      
+      if (!tokens.refresh_token) {
+        console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
+      }
+      
+      return tokens;
+    } catch (error) {
+      console.error(`Failed with redirect URI ${redirectURI}:`, error.message);
+      lastError = error;
+      // Continue trying other URIs
+    }
   }
+  
+  // If we've tried all URIs and failed, throw a comprehensive error
+  console.error(`All ${attemptedUris.length} token exchange attempts failed`);
+  
+  const errorMessage = lastError?.message || 'Unknown error';
+  const enhancedError = new Error(`All token exchange attempts failed. Last error: ${errorMessage}. Tried ${attemptedUris.length} different redirect URIs.`);
+  
+  if (lastError?.stack) {
+    enhancedError.stack = lastError.stack;
+  }
+  
+  throw enhancedError;
 }
 
 /**

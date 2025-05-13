@@ -1634,16 +1634,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let tokens;
       try {
-        // Get tokens from the code
-        const { tokens: oauthTokens } = await oauth2Client.getToken(code as string);
-        tokens = oauthTokens;
-        console.log('Tokens received directly via OAuth client');
-      } catch (tokenExchangeError) {
-        console.error('Error during token exchange with matched client:', tokenExchangeError);
-        
-        // Fallback to our standard method as a last resort
-        console.log('Falling back to standard getTokens method...');
-        tokens = await googleService.getTokens(code as string);
+        // Pass the original callback URL to our improved getTokens function
+        console.log('Calling getTokens with original callback URL:', originalCallbackUrl);
+        tokens = await googleService.getTokens(code as string, originalCallbackUrl);
+        console.log('Successfully obtained tokens!');
+      } catch (tokenError) {
+        console.error('Token exchange failed:', tokenError);
+        return res.redirect('/inbox?status=error&reason=token_exchange_failed');
       }
       
       console.log('Tokens received:', tokens ? 'success' : 'failure');
