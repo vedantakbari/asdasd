@@ -26,8 +26,14 @@ interface BookingPageData {
   availableSlots: TimeSlot[];
 }
 
-export default function BookingPage() {
-  const { userId } = useParams();
+interface BookingPageProps {
+  userId?: string;
+}
+
+export default function BookingPage({ userId: propUserId }: BookingPageProps = {}) {
+  // Get userId from props or from params
+  const params = useParams<{ userId: string }>();
+  const userId = propUserId || params.userId;
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [bookingData, setBookingData] = useState<BookingPageData | null>(null);
