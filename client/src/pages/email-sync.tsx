@@ -51,6 +51,7 @@ const EmailSync: React.FC = () => {
         const response = await fetch('/api/google/credentials-status');
         if (response.ok) {
           const data = await response.json();
+          console.log("Google credentials status:", data);
           setCredentialsStatus(data);
           
           // If credentials are configured, fetch the actual credential values to populate the form
@@ -74,11 +75,6 @@ const EmailSync: React.FC = () => {
         }
       } catch (error) {
         console.error('Error checking credentials status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load credentials status. Please refresh the page.",
-          variant: "destructive"
-        });
       }
     };
     
@@ -96,7 +92,7 @@ const EmailSync: React.FC = () => {
     
     checkCredentialsStatus();
     loadEmailAccounts();
-  }, [toast]);
+  }, []);
   
   // Save Google credentials
   const saveGoogleCredentials = async () => {
@@ -165,14 +161,13 @@ const EmailSync: React.FC = () => {
     }
   };
   
-  // NOTE: newEmail and showEmailInput are already declared above
-  
   // Connect Gmail account
   const connectGmailAccount = async () => {
     setIsConnectingEmail(true);
+    
     try {
-      // Validate the email if we're showing the input
-      if (showEmailInput && !newEmail.trim()) {
+      // Validate the email
+      if (!newEmail.trim()) {
         toast({
           title: "Error",
           description: "Please enter your email address",
@@ -193,6 +188,9 @@ const EmailSync: React.FC = () => {
         return;
       }
       
+      // Log for debugging
+      console.log("Connecting Gmail account with email:", newEmail);
+      
       const response = await fetch('/api/email/accounts', {
         method: 'POST',
         headers: {
@@ -208,6 +206,7 @@ const EmailSync: React.FC = () => {
         const data = await response.json();
         if (data.redirectUrl) {
           // Save the request and redirect
+          console.log("Redirecting to:", data.redirectUrl);
           window.location.href = data.redirectUrl;
         } else {
           toast({
@@ -218,10 +217,19 @@ const EmailSync: React.FC = () => {
           setIsConnectingEmail(false);
         }
       } else {
-        const errorData = await response.json();
+        // Try to parse error response
+        let errorMessage = "Failed to connect Gmail account";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (err) {
+          // If response can't be parsed as JSON
+          errorMessage = "Unexpected server response";
+        }
+        
         toast({
           title: "Error",
-          description: errorData.message || "Failed to connect Gmail account",
+          description: errorMessage,
           variant: "destructive",
         });
         setIsConnectingEmail(false);
@@ -262,39 +270,6 @@ const EmailSync: React.FC = () => {
       toast({
         title: "Error",
         description: "Failed to remove email account",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  // Save sync settings
-  const saveSyncSettings = async () => {
-    try {
-      const response = await fetch('/api/email/sync-settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(syncSettings),
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Email sync settings saved successfully",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to save email sync settings",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error saving sync settings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save email sync settings",
         variant: "destructive",
       });
     }
@@ -412,265 +387,141 @@ const EmailSync: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Sync past emails */}
+          {/* Google API configuration */}
+          <Card>
+            <CardContent className="pt-6">
+              <h2 className="text-xl font-medium mb-4">Google API Configuration</h2>
+              
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="clientId">Google Client ID</Label>
+                  <Input 
+                    id="clientId" 
+                    placeholder="Your Google Client ID" 
+                    value={googleCredentials.clientId}
+                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    From Google Cloud Console - OAuth 2.0 Client ID
+                  </p>
+                </div>
+                
+                <div className="space-y-1">
+                  <Label htmlFor="clientSecret">Google Client Secret</Label>
+                  <Input 
+                    id="clientSecret" 
+                    type="password"
+                    placeholder="Your Google Client Secret" 
+                    value={googleCredentials.clientSecret}
+                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    From Google Cloud Console - OAuth 2.0 Client Secret
+                  </p>
+                </div>
+                
+                <Button 
+                  onClick={saveGoogleCredentials}
+                >
+                  Save Credentials
+                </Button>
+                
+                {credentialsStatus.isConfigured && (
+                  <div className="mt-2">
+                    <Badge className="bg-green-100 text-green-800">
+                      <Check className="h-3 w-3 mr-1" />
+                      API Credentials configured
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Connected accounts */}
+          {emailAccounts.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-medium mb-4">Connected accounts</h2>
+                
+                <div className="space-y-2">
+                  {emailAccounts.map(account => (
+                    <div key={account.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-blue-500" />
+                        <span>{account.email}</span>
+                        {account.connected && (
+                          <Badge variant="outline" className="ml-2 text-green-600 border-green-200 bg-green-50">
+                            connected
+                          </Badge>
+                        )}
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => removeEmailAccount(account.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Sync settings */}
           <Card>
             <CardContent className="pt-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-medium">Sync past emails</h2>
+                <h2 className="text-xl font-medium">Sync settings</h2>
                 <Info className="h-4 w-4 text-muted-foreground" />
               </div>
               
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="syncStartDate">Sync start date</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="syncFrequency">Sync frequency</Label>
                   <select 
-                    id="syncStartDate" 
+                    id="syncFrequency" 
                     className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={syncSettings.frequency}
                     onChange={(e) => setSyncSettings({...syncSettings, frequency: e.target.value})}
                   >
-                    <option value="3days">3 days ago (May 10, 2025)</option>
-                    <option value="1week">1 week ago</option>
-                    <option value="1month">1 month ago</option>
-                    <option value="3months">3 months ago</option>
+                    <option value="5min">Every 5 minutes</option>
+                    <option value="15min">Every 15 minutes</option>
+                    <option value="30min">Every 30 minutes</option>
+                    <option value="60min">Every hour</option>
                   </select>
                 </div>
                 
-                <Button onClick={saveSyncSettings} size="sm">Sync</Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Signatures */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-medium">Signatures</h2>
-              </div>
-              
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add signature
-              </Button>
-            </CardContent>
-          </Card>
-          
-          {/* Advanced settings */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4">Advanced settings</h2>
-              
-              <div className="space-y-6">
-                <div>
-                  <h3 className="font-medium mb-2">Email tracking</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        id="trackOpen" 
-                        checked={syncSettings.emailTracking}
-                        onCheckedChange={(checked) => setSyncSettings({...syncSettings, emailTracking: checked})}
-                      />
-                      <Label htmlFor="trackOpen">Track when recipients open emails</Label>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        id="trackClicks" 
-                        checked={syncSettings.emailTracking}
-                        onCheckedChange={(checked) => setSyncSettings({...syncSettings, emailTracking: checked})}
-                      />
-                      <Label htmlFor="trackClicks">Track when recipients click links in emails</Label>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        id="trackActivity" 
-                        checked={true}
-                      />
-                      <Label htmlFor="trackActivity">Get alerts in Pipedrive for email tracking activities</Label>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button onClick={saveSyncSettings} size="sm">Save</Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Default email visibility */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4">Default email visibility</h2>
-              
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <input 
-                    type="radio" 
-                    id="sharedVisibility" 
-                    name="emailVisibility" 
-                    className="mt-1" 
-                    defaultChecked 
-                  />
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="sharedVisibility" className="font-medium">Shared - visible to all</Label>
-                    <p className="text-sm text-muted-foreground">Email conversations will be visible to all users when linked to CRM items.</p>
+                    <Label htmlFor="syncAllFolders">Sync all folders</Label>
+                    <p className="text-xs text-muted-foreground">Include all mail folders in sync</p>
                   </div>
-                </div>
-                
-                <div className="flex items-start gap-2">
-                  <input 
-                    type="radio" 
-                    id="privateVisibility" 
-                    name="emailVisibility" 
-                    className="mt-1" 
-                  />
-                  <div>
-                    <Label htmlFor="privateVisibility" className="font-medium">Private</Label>
-                    <p className="text-sm text-muted-foreground">Email conversations will be visible only to you, even when linked to CRM items.</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Synced folders */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-medium">Synced folders</h2>
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="radio" 
+                  <Switch 
                     id="syncAllFolders" 
-                    name="syncFolders" 
                     checked={syncSettings.syncAllFolders}
-                    onChange={() => setSyncSettings({...syncSettings, syncAllFolders: true})}
+                    onCheckedChange={(checked) => setSyncSettings({...syncSettings, syncAllFolders: checked})}
                   />
-                  <Label htmlFor="syncAllFolders">Sync emails from all folders</Label>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="radio" 
-                    id="syncSelectedFolders" 
-                    name="syncFolders" 
-                    checked={!syncSettings.syncAllFolders}
-                    onChange={() => setSyncSettings({...syncSettings, syncAllFolders: false})}
-                  />
-                  <Label htmlFor="syncSelectedFolders">Select folders to sync emails from</Label>
-                </div>
-                
-                {!syncSettings.syncAllFolders && (
-                  <div className="ml-6 pl-2 border-l-2 border-gray-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <input type="checkbox" id="folder-inbox" defaultChecked />
-                      <Label htmlFor="folder-inbox">Inbox</Label>
-                    </div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <input type="checkbox" id="folder-sent" defaultChecked />
-                      <Label htmlFor="folder-sent">Sent</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="folder-drafts" />
-                      <Label htmlFor="folder-drafts">Drafts</Label>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="trackEmails">Email tracking</Label>
+                    <p className="text-xs text-muted-foreground">Track email opens and clicks</p>
                   </div>
-                )}
-                
-                <Button onClick={saveSyncSettings} size="sm" className="mt-2">Save</Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Account management */}
-          <Card>
-            <CardContent className="pt-6">
-              <h2 className="text-xl font-medium mb-4">Account management</h2>
-              
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={connectGmailAccount}
-                  disabled={isConnectingEmail || !credentialsStatus.isConfigured}
-                >
-                  {isConnectingEmail ? 'Connecting...' : 'Connect email account'}
-                </Button>
-                
-                {emailAccounts.length > 0 && (
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    onClick={() => removeEmailAccount(emailAccounts[0].id)}
-                  >
-                    Remove account
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Google API configuration - Always displayed now */}
-          <Card className="border-amber-200 bg-amber-50/50 mb-6">
-            <CardContent className="pt-6">
-              <div className="flex items-center mb-4">
-                <h2 className="text-xl font-medium text-amber-800">Google API Configuration</h2>
-                {credentialsStatus.isConfigured && (
-                  <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
-                    <Check className="w-3 h-3 mr-1" /> Configured
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="space-y-4">
-                {!credentialsStatus.isConfigured && (
-                  <p className="text-amber-700">
-                    Before you can connect your email account, you need to configure your Google API credentials.
-                  </p>
-                )}
-              
-                <div className="grid gap-2">
-                  <Label htmlFor="clientId" className="text-amber-800">Client ID</Label>
-                  <Input 
-                    id="clientId" 
-                    value={googleCredentials.clientId} 
-                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientId: e.target.value})}
-                    placeholder="Enter your Google Client ID"
-                    className="border-amber-200"
+                  <Switch 
+                    id="trackEmails" 
+                    checked={syncSettings.emailTracking}
+                    onCheckedChange={(checked) => setSyncSettings({...syncSettings, emailTracking: checked})}
                   />
                 </div>
                 
-                <div className="grid gap-2">
-                  <Label htmlFor="clientSecret" className="text-amber-800">Client Secret</Label>
-                  <Input 
-                    id="clientSecret" 
-                    value={googleCredentials.clientSecret} 
-                    onChange={(e) => setGoogleCredentials({...googleCredentials, clientSecret: e.target.value})}
-                    placeholder="Enter your Google Client Secret"
-                    className="border-amber-200"
-                  />
-                </div>
-                
-                <Button onClick={saveGoogleCredentials} className="bg-amber-600 hover:bg-amber-700">
-                  {credentialsStatus.isConfigured ? 'Update Credentials' : 'Save Credentials'}
+                <Button className="w-full">
+                  Save Settings
                 </Button>
-                
-                <div className="bg-white p-4 rounded-md border border-amber-200">
-                  <h3 className="font-medium text-amber-800 mb-2">How to get Google API credentials</h3>
-                  <ol className="list-decimal ml-5 text-sm space-y-1 text-amber-700">
-                    <li>Go to the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-amber-600 underline">Google Cloud Console</a></li>
-                    <li>Create a new project or select an existing one</li>
-                    <li>Go to "Credentials" and click "Create Credentials" &gt; "OAuth client ID"</li>
-                    <li>Select "Web application" as the application type</li>
-                    <li>Add "{window.location.origin}" as an authorized JavaScript origin</li>
-                    <li>Add "{window.location.origin}/api/auth/google/callback" as an authorized redirect URI</li>
-                    <li>Click "Create" and copy your Client ID and Client Secret</li>
-                  </ol>
-                </div>
               </div>
             </CardContent>
           </Card>
