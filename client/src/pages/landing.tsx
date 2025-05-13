@@ -29,11 +29,11 @@ const LandingPage = () => {
             <div>
               <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-gray-900 mb-6">
                 <span className="block">The Complete CRM for</span>
-                <span className="block text-primary">Home Service Businesses</span>
+                <span className="block text-primary">All Business Types</span>
               </h1>
               <p className="text-xl text-gray-600 mb-8">
                 Manage your leads, clients, appointments, and payments all in one place. 
-                Streamline your workflow and grow your business with our powerful, yet simple CRM solution.
+                Streamline your workflow and grow your business with our powerful, yet simple CRM solution designed for businesses of any size or industry.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" onClick={handleGetStarted} className="bg-primary hover:bg-primary/90 text-white font-semibold px-8">
@@ -67,9 +67,9 @@ const LandingPage = () => {
       <section className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Everything You Need to Run Your Service Business</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Everything You Need to Run Your Business Efficiently</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our comprehensive toolkit helps you streamline operations, delight your customers, and grow your business.
+              Our comprehensive toolkit helps you streamline operations, delight your customers, and grow your business - whether you're a retail store, consulting firm, or any other industry.
             </p>
           </div>
           
@@ -215,27 +215,27 @@ const LandingPage = () => {
       <section className="py-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Trusted by Home Service Professionals</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Trusted by Businesses of All Types</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              See why service businesses choose our CRM to manage their operations.
+              See why businesses across industries choose our CRM to manage their operations.
             </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <TestimonialCard 
-              quote="This CRM has transformed how I run my plumbing business. The scheduling and client management tools have saved me hours every week."
+              quote="This CRM has transformed how I run my retail business. The lead tracking and client management tools have saved me hours every week and increased our sales."
               author="Thomas Wilson"
-              role="Owner, Wilson Plumbing"
+              role="Owner, Wilson Retail Group"
             />
             <TestimonialCard 
-              quote="As an electrician, keeping track of appointments and follow-ups is crucial. This platform has simplified my workflow and helped me grow my customer base."
+              quote="As a consultant, keeping track of client interactions and follow-ups is crucial. This platform has simplified my workflow and helped me grow my client base substantially."
               author="Sarah Johnson"
-              role="Johnson Electric"
+              role="Johnson Consulting"
             />
             <TestimonialCard 
-              quote="The email integration feature is amazing. Being able to communicate with clients without switching between apps has made our HVAC business much more efficient."
+              quote="The email integration feature is amazing. Being able to communicate with clients without switching between apps has made our marketing agency much more efficient."
               author="Robert Garcia"
-              role="Cool Air Services"
+              role="Garcia Marketing Agency"
             />
           </div>
         </div>
@@ -245,9 +245,9 @@ const LandingPage = () => {
       <section className="py-20 bg-primary">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-white mb-6">Ready to streamline your service business?</h2>
+            <h2 className="text-3xl font-bold text-white mb-6">Ready to streamline your business operations?</h2>
             <p className="text-xl text-white/80 max-w-3xl mx-auto mb-8">
-              Join thousands of service professionals who use our CRM to manage their business more effectively.
+              Join thousands of businesses across all industries who use ServiceCRM to manage their operations more effectively.
             </p>
             <Button 
               size="lg"
