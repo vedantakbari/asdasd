@@ -347,8 +347,12 @@ const Inbox: React.FC = () => {
       accountId: selectedAccountId,
       to: composeData.to,
       subject: composeData.subject,
-      body: composeData.body
+      body: composeData.body,
+      leadId: leadId // Include the leadId if available
     });
+    
+    // After sending the email, clear the leadId
+    setLeadId(undefined);
   };
   
   const handleCreateLead = (email: EmailMessage) => {
@@ -812,10 +816,23 @@ const Inbox: React.FC = () => {
         </div>
       </div>
       
-      <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
+      <Dialog open={isComposeOpen} onOpenChange={(open) => {
+          setIsComposeOpen(open);
+          if (!open) {
+            // Clear leadId when closing the compose dialog
+            setLeadId(undefined);
+          }
+        }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Compose New Email</DialogTitle>
+            <DialogTitle>
+              {leadId ? 'Email Client' : 'Compose New Email'}
+            </DialogTitle>
+            {leadId && (
+              <div className="mt-1 text-sm text-muted-foreground">
+                This email will be logged to the client's activity history
+              </div>
+            )}
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
