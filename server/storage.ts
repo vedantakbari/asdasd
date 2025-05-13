@@ -9,7 +9,8 @@ import {
   activities, type Activity, type InsertActivity,
   googleCalendarSettings, type GoogleCalendarSettings, type InsertGoogleCalendarSettings,
   emailAccounts, type EmailAccount, type InsertEmailAccount,
-  LeadStatus, DealStage, TaskPriority, TaskStatus
+  pipelines, type Pipeline, type InsertPipeline,
+  LeadStatus, DealStage, TaskPriority, TaskStatus, KanbanLane
 } from "@shared/schema";
 
 export interface IStorage {
@@ -132,6 +133,7 @@ export class MemStorage implements IStorage {
     this.activities = new Map();
     this.googleCalendarSettings = new Map();
     this.emailAccounts = new Map();
+    this.pipelines = new Map();
     
     this.userId = 1;
     this.leadId = 1;
@@ -143,6 +145,7 @@ export class MemStorage implements IStorage {
     this.activityId = 1;
     this.googleCalendarSettingsId = 1;
     this.emailAccountId = 1;
+    this.pipelineId = 1;
     
     // Add some sample data for testing
     this.seedSampleData();
@@ -939,6 +942,118 @@ export class MemStorage implements IStorage {
     ];
 
     emailAccounts.forEach(account => this.createEmailAccount(account));
+    
+    // Sample pipelines with real estate workflow lanes
+    const defaultPipeline: InsertPipeline = {
+      name: "Real Estate Listing Workflow",
+      description: "Default workflow for real estate listings",
+      isDefault: true,
+      lanes: [
+        { id: KanbanLane.PRESENT_VALUATION, name: "Present valuation report" },
+        { id: KanbanLane.SIGN_AGREEMENTS, name: "Sign listing agreements and disclosures" },
+        { id: KanbanLane.KICKOFF_MEETINGS, name: "Seller kickoff meetings" },
+        { id: KanbanLane.CREATE_MARKETING, name: "Create marketing materials" },
+        { id: KanbanLane.LAUNCH_MARKETING, name: "Launch marketing" },
+      ]
+    };
+    
+    this.createPipeline(defaultPipeline);
+  }
+  
+  // Pipeline methods
+  async getPipelines(): Promise<Pipeline[]> {
+    return Array.from(this.pipelines.values());
+  }
+  
+  async getPipeline(id: number): Promise<Pipeline | undefined> {
+    return this.pipelines.get(id);
+  }
+  
+  async getDefaultPipeline(): Promise<Pipeline | undefined> {
+    for (const pipeline of this.pipelines.values()) {
+      if (pipeline.isDefault) {
+        return pipeline;
+      }
+    }
+    return undefined;
+  }
+  
+  async createPipeline(pipeline: InsertPipeline): Promise<Pipeline> {
+    const now = new Date();
+    const newPipeline: Pipeline = {
+      id: this.pipelineId++,
+      name: pipeline.name,
+      description: pipeline.description || null,
+      isDefault: pipeline.isDefault || false,
+      lanes: pipeline.lanes || [],
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.pipelines.set(newPipeline.id, newPipeline);
+    return newPipeline;
+  }
+  
+  async updatePipeline(id: number, data: Partial<InsertPipeline>): Promise<Pipeline | undefined> {
+    const pipeline = this.pipelines.get(id);
+    if (!pipeline) return undefined;
+    
+    const updatedPipeline: Pipeline = {
+      ...pipeline,
+      name: data.name !== undefined ? data.name : pipeline.name,
+      description: data.description !== undefined ? data.description : pipeline.description,
+      isDefault: data.isDefault !== undefined ? data.isDefault : pipeline.isDefault,
+      lanes: data.lanes !== undefined ? data.lanes : pipeline.lanes,
+      updatedAt: new Date()
+    };
+    
+    this.pipelines.set(id, updatedPipeline);
+    return updatedPipeline;
+  }
+  
+  async deletePipeline(id: number): Promise<boolean> {
+    return this.pipelines.delete(id);
+  }
+  
+  async setDefaultPipeline(id: number): Promise<Pipeline | undefined> {
+    const pipeline = this.pipelines.get(id);
+    if (!pipeline) return undefined;
+    
+    // Set all pipelines to non-default
+    for (const [pipelineId, p] of this.pipelines.entries()) {
+      if (p.isDefault) {
+        this.pipelines.set(pipelineId, { ...p, isDefault: false, updatedAt: new Date() });
+      }
+    }
+    
+    // Set target pipeline as default
+    const updatedPipeline: Pipeline = {
+      ...pipeline,
+      isDefault: true,
+      updatedAt: new Date()
+    };
+    
+    this.pipelines.set(id, updatedPipeline);
+    return updatedPipeline;
+  }
+  
+  async updateLaneInPipeline(pipelineId: number, laneId: string, newName: string): Promise<Pipeline | undefined> {
+    const pipeline = this.pipelines.get(pipelineId);
+    if (!pipeline) return undefined;
+    
+    // Find and update the lane name
+    const updatedLanes = pipeline.lanes.map(lane => 
+      lane.id === laneId ? { ...lane, name: newName } : lane
+    );
+    
+    const updatedPipeline: Pipeline = {
+      ...pipeline,
+      lanes: updatedLanes,
+      updatedAt: new Date()
+    };
+    
+    this.pipelines.set(pipelineId, updatedPipeline);
+    return updatedPipeline;
   }
 }
 

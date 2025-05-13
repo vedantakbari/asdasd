@@ -10,6 +10,7 @@ import {
   insertAppointmentSchema,
   insertPaymentSchema,
   insertActivitySchema,
+  insertPipelineSchema,
   LeadStatus,
   KanbanLane,
 } from "@shared/schema";
