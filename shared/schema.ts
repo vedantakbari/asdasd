@@ -340,7 +340,8 @@ export const insertEmailAccountSchema = createInsertSchema(emailAccounts).omit({
 export const emailMessages = pgTable("email_messages", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull().references(() => emailAccounts.id),
-  externalId: text("external_id"), // ID from external email provider
+  externalId: text("external_id"), // ID from external email provider (Gmail message ID)
+  threadId: text("thread_id"), // Thread ID from Gmail
   from: text("from").notNull(),
   fromName: text("from_name"),
   to: text("to").notNull(),
@@ -348,11 +349,14 @@ export const emailMessages = pgTable("email_messages", {
   subject: text("subject").notNull(),
   body: text("body").notNull(),
   htmlBody: text("html_body"),
+  snippet: text("snippet"), // Short preview of message from Gmail
   read: boolean("read").default(false),
   folder: text("folder").default("inbox").notNull(), // inbox, sent, drafts, etc.
+  labelIds: text("label_ids"), // JSON stringified array of Gmail label IDs
   relatedLeadId: integer("related_lead_id"),
   relatedCustomerId: integer("related_customer_id"),
   sentDate: timestamp("sent_date").defaultNow(),
+  receivedDate: timestamp("received_date"), // When the message was received
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

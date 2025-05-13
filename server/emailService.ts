@@ -1,6 +1,6 @@
-import nodemailer from 'nodemailer';
 import { EmailAccount, EmailMessage } from '@shared/schema';
 import { IStorage } from './storage';
+import * as googleService from './googleService';
 
 interface EmailOptions {
   to: string;
@@ -23,160 +23,254 @@ interface SyncResult {
 
 export class EmailService {
   private account: EmailAccount;
-  private transporter: nodemailer.Transporter;
   
   constructor(account: EmailAccount) {
     this.account = account;
-    
-    // Create SMTP transporter
-    this.transporter = nodemailer.createTransport({
-      host: account.smtpHost,
-      port: account.smtpPort,
-      secure: account.smtpPort === 465, // true for 465, false for other ports
-      auth: {
-        user: account.smtpUsername,
-        pass: account.smtpPassword
-      }
-    });
   }
   
   /**
-   * Test the email connection to verify credentials
+   * Test the Gmail connection to verify credentials
    */
   async testConnection(): Promise<boolean> {
     try {
-      // Verify SMTP connection
-      await this.transporter.verify();
+      if (!this.account.accessToken) {
+        console.error("No access token available for Gmail account");
+        return false;
+      }
+      
+      // Try to fetch labels as a connection test
+      await googleService.getGmailLabels(this.account.accessToken);
       return true;
     } catch (error) {
-      console.error("SMTP connection test failed:", error);
+      console.error("Gmail connection test failed:", error);
+      
+      // Try to refresh the token if possible
+      if (this.account.refreshToken) {
+        try {
+          console.log("Attempting to refresh Gmail token...");
+          const refreshedTokens = await googleService.refreshAccessToken(this.account.refreshToken);
+          
+          if (refreshedTokens && refreshedTokens.access_token) {
+            console.log("Successfully refreshed Gmail token");
+            // Update the account with the new token (this will be saved by the caller)
+            this.account.accessToken = refreshedTokens.access_token;
+            return true;
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token:", refreshError);
+        }
+      }
+      
       return false;
     }
   }
   
   /**
-   * Send an email through the configured account
+   * Send an email through Gmail API
    */
   async sendEmail(options: EmailOptions): Promise<SendResult> {
     try {
-      const mailOptions = {
-        from: this.account.displayName
-          ? `"${this.account.displayName}" <${this.account.email}>`
-          : this.account.email,
-        to: options.to,
-        subject: options.subject,
-        text: options.text,
-        html: options.html
-      };
+      if (!this.account.accessToken || !this.account.refreshToken) {
+        throw new Error("Gmail account is not properly authenticated");
+      }
       
-      const info = await this.transporter.sendMail(mailOptions);
+      // Prepare the body content
+      const body = options.html || options.text || '';
+      
+      // Send via Gmail API
+      const result = await googleService.sendGmailMessage(
+        this.account.accessToken,
+        this.account.refreshToken,
+        options.to,
+        options.subject,
+        body
+      );
       
       return {
         success: true,
-        messageId: info.messageId
+        messageId: result.id
       };
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error("Error sending email via Gmail API:", error);
+      
+      // Try to refresh token and retry if possible
+      if (error.message && error.message.includes('invalid_grant') && this.account.refreshToken) {
+        try {
+          console.log("Attempting to refresh token and retry sending...");
+          const refreshedTokens = await googleService.refreshAccessToken(this.account.refreshToken);
+          
+          if (refreshedTokens && refreshedTokens.access_token) {
+            this.account.accessToken = refreshedTokens.access_token;
+            
+            // Retry with new token
+            const result = await googleService.sendGmailMessage(
+              this.account.accessToken,
+              this.account.refreshToken,
+              options.to,
+              options.subject,
+              options.html || options.text || ''
+            );
+            
+            return {
+              success: true,
+              messageId: result.id
+            };
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token and retry:", refreshError);
+        }
+      }
+      
       return {
         success: false,
-        error: error.message || "Failed to send email"
+        error: error.message || "Failed to send email via Gmail API"
       };
     }
   }
   
   /**
-   * Synchronize emails from the IMAP server
-   * This is a placeholder implementation since we're not implementing full IMAP
-   * functionality in this version.
+   * Synchronize emails from Gmail API
    */
   async syncMessages(storage: IStorage): Promise<SyncResult> {
-    // In a real implementation, we would:
-    // 1. Connect to the IMAP server
-    // 2. Fetch new messages since the last sync
-    // 3. Save those messages to the database
-    
-    // For our example CRM, we'll create a few sample messages
-    // for testing purposes if none exist
-    
     try {
-      // Check if we already have messages for this account
-      const existingMessages = await storage.getEmailMessages(this.account.id);
+      if (!this.account.accessToken || !this.account.refreshToken) {
+        throw new Error("Gmail account is not properly authenticated");
+      }
       
-      // If we already have messages, don't add more sample ones
-      if (existingMessages.length > 0) {
+      // First, check when we last synced
+      const lastSyncDate = this.account.lastSynced ? new Date(this.account.lastSynced) : null;
+      
+      // Build a query to get recent messages
+      let query = '';
+      if (lastSyncDate) {
+        // Convert date to RFC3339 format for Gmail API
+        const after = lastSyncDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        query = `after:${after}`;
+      }
+      
+      // Fetch messages from Gmail API
+      const messages = await googleService.listGmailMessages(
+        this.account.accessToken,
+        this.account.refreshToken,
+        query,
+        100 // Max results
+      );
+      
+      console.log(`Retrieved ${messages.length} messages from Gmail API`);
+      
+      // Skip if no messages found
+      if (!messages || messages.length === 0) {
         return {
           success: true,
           newMessages: 0
         };
       }
       
-      // For demonstration, generate a few sample emails
-      const sampleEmails = [
-        {
-          accountId: this.account.id,
-          from: 'client@example.com',
-          fromName: 'Potential Client',
-          to: this.account.email,
-          subject: 'Inquiry about your services',
-          textBody: 'Hello, I\'m interested in learning more about your services. Can we schedule a call?',
-          sentDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-          receivedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000 + 5000), // 5 seconds later
-          read: false,
-          folder: 'inbox',
-          messageId: `sample-1-${Date.now()}@example.com`
-        },
-        {
-          accountId: this.account.id,
-          from: this.account.email,
-          fromName: this.account.displayName || undefined,
-          to: 'client@example.com',
-          subject: 'Re: Inquiry about your services',
-          textBody: 'Thank you for your interest! I\'d be happy to schedule a call. How does tomorrow at 2pm sound?',
-          sentDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          read: true,
-          folder: 'sent',
-          messageId: `sample-2-${Date.now()}@example.com`
-        },
-        {
-          accountId: this.account.id,
-          from: 'vendor@example.com',
-          fromName: 'Vendor Partner',
-          to: this.account.email,
-          subject: 'Partnership Opportunity',
-          textBody: 'We have a new business opportunity that might interest you. Let\'s discuss!',
-          sentDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-          receivedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 8000), // 8 seconds later
-          read: false,
-          folder: 'inbox',
-          messageId: `sample-3-${Date.now()}@example.com`
-        }
-      ];
+      // Count of new messages saved
+      let newMessageCount = 0;
       
-      // Save the sample emails
-      for (const email of sampleEmails) {
-        await storage.saveEmailMessage(email);
+      // Save or update each message in our storage
+      for (const gmailMessage of messages) {
+        // Convert Gmail message format to our application format
+        const messageData = {
+          accountId: this.account.id,
+          from: gmailMessage.from,
+          fromName: gmailMessage.fromName,
+          to: gmailMessage.to,
+          toName: gmailMessage.toName,
+          subject: gmailMessage.subject,
+          textBody: gmailMessage.body,
+          sentDate: gmailMessage.date,
+          receivedDate: gmailMessage.date,
+          read: gmailMessage.read,
+          folder: gmailMessage.folder,
+          messageId: gmailMessage.externalId,
+          // Additional Gmail specific fields
+          threadId: gmailMessage.threadId,
+          snippet: gmailMessage.snippet,
+          labelIds: gmailMessage.labelIds ? JSON.stringify(gmailMessage.labelIds) : undefined
+        };
+        
+        // Check if this message already exists by external ID (Gmail ID)
+        // Note: This would need a getEmailMessageByExternalId method, which we may need to add
+        // For now, we'll save all messages and handle duplicates later
+        await storage.saveEmailMessage(messageData);
+        newMessageCount++;
       }
+      
+      // Update the last sync timestamp
+      await storage.updateEmailAccount(this.account.id, {
+        lastSynced: new Date(),
+        connected: true
+      });
       
       return {
         success: true,
-        newMessages: sampleEmails.length
+        newMessages: newMessageCount
       };
     } catch (error) {
-      console.error("Error syncing messages:", error);
+      console.error("Error syncing messages from Gmail API:", error);
+      
+      // Try to refresh token and retry if possible
+      if (error.message && error.message.includes('invalid_grant') && this.account.refreshToken) {
+        try {
+          console.log("Attempting to refresh token and retry syncing...");
+          const refreshedTokens = await googleService.refreshAccessToken(this.account.refreshToken);
+          
+          if (refreshedTokens && refreshedTokens.access_token) {
+            this.account.accessToken = refreshedTokens.access_token;
+            
+            // Update the account with new token
+            await storage.updateEmailAccount(this.account.id, {
+              accessToken: refreshedTokens.access_token
+            });
+            
+            // Recursive call to try again
+            return this.syncMessages(storage);
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token and retry syncing:", refreshError);
+        }
+      }
+      
       return {
         success: false,
         newMessages: 0,
-        error: error.message || "Failed to sync messages"
+        error: error.message || "Failed to sync messages from Gmail API"
       };
     }
   }
   
   /**
-   * In a full implementation, we would add methods to:
-   * - Fetch specific folders (inbox, sent, draft, etc.)
-   * - Mark messages as read/unread
-   * - Move messages between folders
-   * - Delete messages
-   * - Add attachments
+   * Get Gmail labels for the account
    */
+  async getLabels(): Promise<any[]> {
+    try {
+      if (!this.account.accessToken) {
+        throw new Error("Gmail account is not properly authenticated");
+      }
+      
+      const labels = await googleService.getGmailLabels(this.account.accessToken);
+      return labels;
+    } catch (error) {
+      console.error("Error fetching Gmail labels:", error);
+      
+      // Try to refresh token and retry if possible
+      if (this.account.refreshToken) {
+        try {
+          const refreshedTokens = await googleService.refreshAccessToken(this.account.refreshToken);
+          
+          if (refreshedTokens && refreshedTokens.access_token) {
+            this.account.accessToken = refreshedTokens.access_token;
+            const labels = await googleService.getGmailLabels(this.account.accessToken);
+            return labels;
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token and retry:", refreshError);
+        }
+      }
+      
+      throw error;
+    }
+  }
 }
