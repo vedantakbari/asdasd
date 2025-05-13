@@ -10,6 +10,7 @@ interface EmailMessage {
   subject: string;
   text?: string;
   html?: string;
+  messageId?: string;
   relatedLeadId?: number;
   relatedCustomerId?: number;
 }
@@ -32,12 +33,12 @@ export class EmailService {
     
     // Create a new transporter
     const transport = nodemailer.createTransport({
-      host: account.smtpHost,
-      port: account.smtpPort,
-      secure: account.smtpPort === 465, // true for 465, false for other ports
+      host: account.smtpHost || 'smtp.gmail.com', // Default to Gmail as fallback
+      port: parseInt(account.smtpPort || '587'),
+      secure: account.smtpPort === '465', // true for 465, false for other ports
       auth: {
-        user: account.smtpUsername,
-        pass: account.smtpPassword,
+        user: account.email,
+        pass: account.password || '',
       }
     });
     
@@ -88,12 +89,14 @@ export class EmailService {
         subject: message.subject,
         textBody: message.text,
         htmlBody: message.html,
-        sentDate: new Date(),
+        sentDate: new Date(), 
+        receivedDate: null,
         read: true,
         folder: 'sent',
-        messageId: info.messageId,
-        relatedLeadId: message.relatedLeadId,
-        relatedCustomerId: message.relatedCustomerId
+        messageId: info.messageId || message.messageId,
+        externalId: null,
+        relatedLeadId: message.relatedLeadId || null,
+        relatedCustomerId: message.relatedCustomerId || null
       });
       
       return true;
@@ -153,11 +156,15 @@ export class EmailService {
         toName: account.displayName,
         subject: 'Interested in Your Services',
         textBody: 'Hello,\n\nI came across your company and am interested in learning more about your services. Can you please provide some information?\n\nThank you,\nPotential Client',
+        htmlBody: '<p>Hello,</p><p>I came across your company and am interested in learning more about your services. Can you please provide some information?</p><p>Thank you,<br>Potential Client</p>',
         sentDate: oneDayAgo,
         receivedDate: oneDayAgo,
         read: false,
         folder: 'inbox',
-        messageId: `demo-${Date.now()}-1`
+        messageId: `demo-${Date.now()}-1`,
+        externalId: null,
+        relatedLeadId: null,
+        relatedCustomerId: null
       },
       {
         accountId: account.id,
@@ -167,11 +174,15 @@ export class EmailService {
         toName: account.displayName,
         subject: 'Invoice #12345',
         textBody: 'Please find attached your monthly invoice.\n\nRegards,\nSupplier Inc.',
+        htmlBody: '<p>Please find attached your monthly invoice.</p><p>Regards,<br>Supplier Inc.</p>',
         sentDate: twoDaysAgo,
         receivedDate: twoDaysAgo,
         read: true,
         folder: 'inbox',
-        messageId: `demo-${Date.now()}-2`
+        messageId: `demo-${Date.now()}-2`,
+        externalId: null,
+        relatedLeadId: null,
+        relatedCustomerId: null
       }
     ];
     
