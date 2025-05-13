@@ -290,28 +290,8 @@ const Settings: React.FC = () => {
                           <li>Go to "Credentials" and create an OAuth Client ID</li>
                           <li>For "Application type" select "Web application"</li>
                           <li>Under "Authorized JavaScript origins" add: <code className="bg-gray-100 px-1">{window.location.origin}</code></li>
-                          <li className="font-bold">Important: Add ALL of the following Authorized redirect URIs to your OAuth client:</li>
+                          <li>For "Authorized redirect URIs", click the button below to get the exact URIs to add</li>
                         </ol>
-                        <div className="bg-white p-3 rounded border border-blue-200 text-xs font-mono mb-4 overflow-x-auto">
-                          {window.location.origin}/api/auth/google/callback<br/>
-                          https://workspace.brian581.repl.co/api/auth/google/callback<br/>
-                          {window.location.origin.replace('https://', 'https://-')}/api/auth/google/callback<br/>
-                          {window.location.origin.replace('.replit.dev', '.repl.co')}/api/auth/google/callback
-                        </div>
-                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-                          <div className="flex">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <p className="text-sm text-yellow-700">
-                                <strong>Important:</strong> Replit domains can change frequently. You <strong>must</strong> add all redirect URIs above to avoid authentication errors.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
                         
                         <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
                           <div className="flex">
@@ -322,15 +302,31 @@ const Settings: React.FC = () => {
                             </div>
                             <div className="ml-3">
                               <p className="text-sm text-green-700">
-                                <strong>Pro Tip:</strong> After adding all redirect URIs, get a new OAuth client ID and client secret from Google. This will ensure all URIs are properly registered.
+                                <strong>Better method:</strong> Use the "Get OAuth Configuration Help" button below to see exactly which redirect URIs you need to add.
                               </p>
                             </div>
                           </div>
                         </div>
+                        
+                        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                          <div className="flex">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm text-yellow-700">
+                                <strong>Important:</strong> Replit domains can change. To avoid authentication errors, use the helper below to get the precise redirect URIs you need.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
                         <div className="mt-4 space-y-3">
                           <Button 
                             variant="outline" 
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50 w-full"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50 w-full font-medium"
                             onClick={async () => {
                               try {
                                 const response = await fetch('/api/google/redirect-uri-debug');
@@ -338,34 +334,36 @@ const Settings: React.FC = () => {
                                 
                                 setIsDialogOpen(true);
                                 setDialogContent({
-                                  title: "Google OAuth Debug Information",
+                                  title: "Google OAuth Configuration Helper",
                                   message: `
-                                    Current domain: ${data.currentDomain}
-                                    
-                                    Expected callback URL: ${data.expectedCallbackUrl}
-                                    
-                                    Current callback URL (from env): ${data.actualRedirectUri}
-                                    
-                                    Using expected URL: ${data.usingExpectedCallback ? "Yes ✓" : "No ✗"}
-                                    
-                                    Found ${data.possibleURICount} possible redirect URIs.
-                                    
                                     ${data.recommendation}
+                                    
+                                    ADD THESE URIS TO GOOGLE CLOUD CONSOLE:
+                                    
+                                    1. Go to Google Cloud Console → APIs & Services → Credentials
+                                    2. Edit your OAuth 2.0 Client ID
+                                    3. Under "Authorized redirect URIs", add each URI below
+                                    4. Click SAVE when done
+                                    
+                                    Current domain: ${data.currentDomain}
+                                    Expected callback URL: ${data.expectedCallbackUrl}
                                   `,
                                   actions: [
                                     {
-                                      label: "Show All URIs",
+                                      label: "Copy Essential URIs",
                                       onClick: () => {
-                                        // Format the redirect URIs as a list
-                                        const redirectUris = data.allPossibleRedirectURIs.join('\n');
+                                        // Format the essential redirect URIs as a list
+                                        const redirectUris = data.essentialRedirectURIs ? 
+                                          data.essentialRedirectURIs.join('\n') : 
+                                          data.allPossibleRedirectURIs.join('\n');
                                         
                                         navigator.clipboard.writeText(redirectUris)
                                           .then(() => {
-                                            alert("All possible redirect URIs have been copied to your clipboard. Add ALL of these to your Google Cloud Console OAuth configuration.");
+                                            alert("Essential redirect URIs copied to clipboard. Add these to your Google Cloud Console under 'Authorized redirect URIs' field.");
                                           })
                                           .catch(err => {
                                             console.error('Could not copy text: ', err);
-                                            alert("All possible redirect URIs:\n\n" + redirectUris);
+                                            alert("Essential redirect URIs:\n\n" + redirectUris);
                                           });
                                       }
                                     },
