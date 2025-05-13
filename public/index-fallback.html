@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ServiceCRM - Free Customer Relationship Management Software</title>
+  <style>
+    /* Basic reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333333;
+      background-color: #f5f7fa;
+    }
+    
+    header {
+      background-color: white;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #4299e1;
+    }
+    
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    .nav-links a {
+      color: #718096;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    
+    .nav-links a:hover {
+      color: #4299e1;
+    }
+    
+    .login-btn {
+      background-color: #4299e1;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    
+    .hero {
+      padding: 5rem 2rem;
+      text-align: center;
+      background: linear-gradient(to bottom, white, #ebf8ff);
+    }
+    
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      color: #2d3748;
+    }
+    
+    .hero h1 span {
+      color: #4299e1;
+    }
+    
+    .hero p {
+      font-size: 1.25rem;
+      color: #718096;
+      max-width: 700px;
+      margin: 0 auto 2rem auto;
+    }
+    
+    .cta-button {
+      display: inline-block;
+      background-color: #4299e1;
+      color: white;
+      padding: 0.75rem 2rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 1.125rem;
+    }
+    
+    .features {
+      padding: 5rem 2rem;
+      background-color: white;
+    }
+    
+    .features-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    
+    .features-header h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 1rem;
+    }
+    
+    .features-header p {
+      font-size: 1.25rem;
+      color: #718096;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    
+    .feature-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      justify-content: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .feature-card {
+      background-color: #ebf8ff;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      width: 100%;
+      max-width: 350px;
+    }
+    
+    .feature-card h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin: 1rem 0;
+    }
+    
+    .feature-card p {
+      color: #718096;
+    }
+    
+    .icon {
+      color: #4299e1;
+      font-size: 2rem;
+    }
+    
+    .cta {
+      padding: 5rem 2rem;
+      background-color: #4299e1;
+      color: white;
+      text-align: center;
+    }
+    
+    .cta h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+    
+    .cta-button-white {
+      display: inline-block;
+      background-color: white;
+      color: #4299e1;
+      padding: 0.75rem 2rem;
+      border-radius: 0.25rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    
+    footer {
+      background-color: #2d3748;
+      color: white;
+      padding: 3rem 2rem;
+    }
+    
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      justify-content: space-between;
+    }
+    
+    .footer-section {
+      min-width: 200px;
+    }
+    
+    .footer-section h3 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    
+    .footer-section a {
+      color: #a0aec0;
+      text-decoration: none;
+      display: block;
+      margin-bottom: 0.5rem;
+      transition: color 0.2s;
+    }
+    
+    .footer-section a:hover {
+      color: white;
+    }
+    
+    .footer-bottom {
+      max-width: 1200px;
+      margin: 2rem auto 0;
+      padding-top: 2rem;
+      border-top: 1px solid #4a5568;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .footer-bottom p {
+      color: #a0aec0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+      
+      .feature-cards {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .footer-content {
+        flex-direction: column;
+      }
+      
+      .footer-bottom {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">ServiceCRM</div>
+    <div class="nav-links">
+      <a href="/about">About</a>
+      <a href="/features">Features</a>
+      <a href="/faq">FAQ</a>
+      <a href="/contact">Contact</a>
+    </div>
+    <a href="/api/login" class="login-btn">Log in</a>
+  </header>
+  
+  <section class="hero">
+    <h1>Manage Customers <br><span>Without Breaking the Bank</span></h1>
+    <p>A <strong>FREE</strong> CRM designed for businesses of all sizes. Easily track leads, close deals, and keep your customers happy.</p>
+    <a href="/api/login" class="cta-button">Get Started Free</a>
+  </section>
+  
+  <section class="features">
+    <div class="features-header">
+      <h2>Everything You Need to Run Your Business</h2>
+      <p>Our comprehensive toolkit helps you streamline operations, delight your customers, and grow your business.</p>
+    </div>
+    
+    <div class="feature-cards">
+      <div class="feature-card">
+        <div class="icon">👥</div>
+        <h3>Lead Management</h3>
+        <p>Easily capture, track, and nurture leads. Never miss a potential client again.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="icon">📅</div>
+        <h3>Smart Scheduling</h3>
+        <p>Manage appointments, set reminders, and sync with Google Calendar for seamless scheduling.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="icon">✉️</div>
+        <h3>Email Integration</h3>
+        <p>Send and receive emails directly in the CRM. Keep all client communications in one place.</p>
+      </div>
+    </div>
+  </section>
+  
+  <section class="cta">
+    <h2>Ready to streamline your business operations?</h2>
+    <a href="/api/login" class="cta-button-white">Get Started For Free</a>
+  </section>
+  
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>ServiceCRM</h3>
+        <p style="color: #a0aec0; margin-top: 0.5rem;">The complete business management solution for all business types.</p>
+      </div>
+      
+      <div class="footer-section">
+        <h3>Product</h3>
+        <a href="/features">Features</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/faq">FAQ</a>
+      </div>
+      
+      <div class="footer-section">
+        <h3>Company</h3>
+        <a href="/about">About Us</a>
+        <a href="/contact">Contact</a>
+      </div>
+      
+      <div class="footer-section">
+        <h3>Legal</h3>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Service</a>
+      </div>
+    </div>
+    
+    <div class="footer-bottom">
+      <p>© 2025 ServiceCRM. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>
