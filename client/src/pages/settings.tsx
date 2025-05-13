@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Header from '@/components/layout/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,11 +8,26 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 // Placeholder for the Settings page
 // This will be expanded with actual functionality
 
 const Settings: React.FC = () => {
+  // State for dialog
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogContent, setDialogContent] = useState<{
+    title: string;
+    message: string;
+    actions: Array<{
+      label: string;
+      onClick: () => void;
+    }>;
+  }>({
+    title: "",
+    message: "",
+    actions: []
+  });
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       <Header 
@@ -613,6 +628,28 @@ const Settings: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Dialog for showing debug info and confirmations */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{dialogContent.title}</DialogTitle>
+            <DialogDescription className="whitespace-pre-line">
+              {dialogContent.message}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end space-x-2">
+            {dialogContent.actions.map((action, index) => (
+              <Button 
+                key={index} 
+                onClick={action.onClick}
+                variant={index === 0 ? "default" : "outline"}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 };
