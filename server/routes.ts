@@ -1935,10 +1935,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ] : [])
         ];
         
-        // Add only the patterns that aren't already in the essentialRedirectURIs array
+        // Add only the patterns that aren't already in the priorityRedirectURIs array
         for (const pattern of importantPatterns) {
-          if (!essentialRedirectURIs.includes(pattern)) {
-            essentialRedirectURIs.push(pattern);
+          if (!priorityRedirectURIs.includes(pattern)) {
+            priorityRedirectURIs.push(pattern);
           }
         }
       }
@@ -1950,9 +1950,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actualRedirectUri,
         usingExpectedCallback: expectedCallbackUrl === configuredCallbackUrl,
         allPossibleRedirectURIs: allPossibleURIs,
-        essentialRedirectURIs, // Only the most important URIs to add
+        essentialRedirectURIs: priorityRedirectURIs, // Only the most important URIs to add
         possibleURICount: allPossibleURIs.length,
-        essentialURICount: essentialRedirectURIs.length,
+        essentialURICount: priorityRedirectURIs.length,
         currentCallbackInPossibleList,
         replitInfo,
         recommendation: 'Add ONLY the Essential Redirect URIs listed below to your Google Cloud Console. These are the URIs most likely to work with your application.'
