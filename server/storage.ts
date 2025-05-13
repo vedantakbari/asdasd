@@ -574,7 +574,11 @@ export class MemStorage implements IStorage {
   }
   
   // Email Account Methods
-  async getEmailAccounts(userId: number): Promise<EmailAccount[]> {
+  async getEmailAccounts(): Promise<EmailAccount[]> {
+    return Array.from(this.emailAccounts.values());
+  }
+  
+  async getEmailAccountsByUser(userId: string): Promise<EmailAccount[]> {
     const accounts: EmailAccount[] = [];
     
     for (const account of this.emailAccounts.values()) {
