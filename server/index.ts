@@ -7,9 +7,91 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check routes - both for API and root path (required for deployments)
+// Add health check route for API
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
+});
+
+// Add root route handler to serve HTML landing page instead of plain "OK"
+app.get("/", (_req, res) => {
+  res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Service CRM - All-In-One Business Management</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+          }
+          h1 {
+            color: #0079f3;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+          }
+          p {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+          }
+          .btn {
+            display: inline-block;
+            background-color: #0079f3;
+            color: white;
+            font-weight: bold;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.35rem;
+            transition: background-color 0.2s;
+          }
+          .btn:hover {
+            background-color: #0067d8;
+          }
+          .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+          }
+          .feature {
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          }
+          .feature h3 {
+            color: #0079f3;
+            margin-top: 0;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Service CRM</h1>
+        <p>The complete business management solution for all business types.</p>
+        <a href="/api/login" class="btn">Log In or Sign Up</a>
+        
+        <div class="features">
+          <div class="feature">
+            <h3>Lead Management</h3>
+            <p>Easily capture, track, and nurture leads. Never miss a potential client again.</p>
+          </div>
+          <div class="feature">
+            <h3>Smart Scheduling</h3>
+            <p>Manage appointments, set reminders, and sync with Google Calendar.</p>
+          </div>
+          <div class="feature">
+            <h3>Email Integration</h3>
+            <p>Send and receive emails directly in the CRM. Keep all client communications in one place.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 // Add request logging middleware
