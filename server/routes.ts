@@ -1805,54 +1805,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add a detailed endpoint for troubleshooting Google OAuth issues
   app.get("/api/google/redirect-uri-debug", (req, res) => {
-    // Return details about the current redirect URI configuration
-    // This is useful for debugging OAuth issues
-    
-    // Get the current domain from the request
-    const protocol = req.secure || (req.headers['x-forwarded-proto'] === 'https') ? 'https' : 'http';
-    const domain = req.headers.host || '';
-    const currentUrl = `${protocol}://${domain}`;
-    
-    // Get all the possible redirect URIs that could work
-    const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
-    
-    // Create the expected callback URL based on the current request
-    const expectedCallbackUrl = `${currentUrl}/api/auth/google/callback`;
-    
-    // Get the configured redirect URI
-    const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI || '';
-    
-    // Check if the current callback URL is in the list of possible URIs
-    const currentCallbackInPossibleList = allPossibleURIs.includes(expectedCallbackUrl);
-    
-    // Get Replit environment information for debugging
-    const replitInfo = {
-      REPL_ID: process.env.REPL_ID || null,
-      REPL_SLUG: process.env.REPL_SLUG || null,
-      REPL_OWNER: process.env.REPL_OWNER || null
-    };
-    
-    // The actual redirect URI being used (redacted for security)
-    let actualRedirectUri = configuredCallbackUrl;
-    if (actualRedirectUri) {
-      // Show first and last few characters, mask the middle for security
-      const firstPart = actualRedirectUri.substring(0, 20);
-      const lastPart = actualRedirectUri.substring(actualRedirectUri.length - 20);
-      actualRedirectUri = `${firstPart}...${lastPart}`;
+    try {
+      // Return details about the current redirect URI configuration
+      // This is useful for debugging OAuth issues
+      
+      // Get the current domain from the request
+      const protocol = req.secure || (req.headers['x-forwarded-proto'] === 'https') ? 'https' : 'http';
+      const domain = req.headers.host || '';
+      const currentUrl = `${protocol}://${domain}`;
+      
+      // Get all the possible redirect URIs that could work
+      const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
+      
+      // Create the expected callback URL based on the current request
+      const expectedCallbackUrl = `${currentUrl}/api/auth/google/callback`;
+      
+      // Get the configured redirect URI
+      const configuredCallbackUrl = process.env.GOOGLE_REDIRECT_URI || '';
+      
+      // Check if the current callback URL is in the list of possible URIs
+      const currentCallbackInPossibleList = allPossibleURIs.includes(expectedCallbackUrl);
+      
+      // Get Replit environment information for debugging
+      const replitInfo = {
+        REPL_ID: process.env.REPL_ID || null,
+        REPL_SLUG: process.env.REPL_SLUG || null,
+        REPL_OWNER: process.env.REPL_OWNER || null
+      };
+      
+      // The actual redirect URI being used (redacted for security)
+      let actualRedirectUri = configuredCallbackUrl;
+      if (actualRedirectUri) {
+        // Show first and last few characters, mask the middle for security
+        const firstPart = actualRedirectUri.substring(0, 20);
+        const lastPart = actualRedirectUri.substring(actualRedirectUri.length - 20);
+        actualRedirectUri = `${firstPart}...${lastPart}`;
+      }
+      
+      // Select the most important redirect URIs to show to the user
+      // These are URIs that cover different domain patterns
+      const essentialRedirectURIs = [];
+      
+      // Include the current domain's redirect URI first
+      if (expectedCallbackUrl) {
+        essentialRedirectURIs.push(expectedCallbackUrl);
+      }
+      
+      // Include the configured URI if it's not the same as the expected one
+      if (configuredCallbackUrl && configuredCallbackUrl !== expectedCallbackUrl) {
+        essentialRedirectURIs.push(configuredCallbackUrl);
+      }
+      
+      // Include important domain patterns for Replit
+      if (process.env.REPL_ID) {
+        const importantPatterns = [
+          // Standard patterns
+          `https://${process.env.REPL_ID}.id.replit.dev/api/auth/google/callback`,
+          `https://${process.env.REPL_ID}.id.repl.co/api/auth/google/callback`,
+          
+          // Patterns with hyphens
+          `https://-${process.env.REPL_ID}.id.replit.dev/api/auth/google/callback`,
+          
+          // If we have slug and owner, add those patterns too
+          ...(process.env.REPL_SLUG && process.env.REPL_OWNER ? [
+            `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`,
+            `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.replit.dev/api/auth/google/callback`,
+          ] : [])
+        ];
+        
+        // Add only the patterns that aren't already in the essentialRedirectURIs array
+        for (const pattern of importantPatterns) {
+          if (!essentialRedirectURIs.includes(pattern)) {
+            essentialRedirectURIs.push(pattern);
+          }
+        }
+      }
+      
+      res.json({
+        currentDomain: domain,
+        currentUrl,
+        expectedCallbackUrl,
+        actualRedirectUri,
+        usingExpectedCallback: expectedCallbackUrl === configuredCallbackUrl,
+        allPossibleRedirectURIs: allPossibleURIs,
+        essentialRedirectURIs, // Only the most important URIs to add
+        possibleURICount: allPossibleURIs.length,
+        essentialURICount: essentialRedirectURIs.length,
+        currentCallbackInPossibleList,
+        replitInfo,
+        recommendation: 'Add ONLY the Essential Redirect URIs listed below to your Google Cloud Console. These are the URIs most likely to work with your application.'
+      });
+    } catch (error) {
+      console.error("Error in Google URI debug endpoint:", error);
+      res.status(500).json({ error: "Failed to retrieve redirect URIs" });
     }
-    
-    res.json({
-      currentDomain: domain,
-      currentUrl,
-      expectedCallbackUrl,
-      actualRedirectUri,
-      usingExpectedCallback: expectedCallbackUrl === configuredCallbackUrl,
-      allPossibleRedirectURIs: allPossibleURIs,
-      possibleURICount: allPossibleURIs.length,
-      currentCallbackInPossibleList,
-      replitInfo,
-      recommendation: 'If you are having OAuth issues, make sure all the possible redirect URIs are added to your Google Cloud Console OAuth client configuration.'
-    });
   });
   
   app.get("/api/email/accounts", async (req, res) => {
