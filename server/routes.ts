@@ -1457,25 +1457,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Failed to retrieve email from Google" });
       }
       
-      // Check if account already exists
+      // Check if account already exists (either by email address match or as the placeholder account)
       const existingAccounts = await storage.getEmailAccounts(userId);
-      const existingAccount = existingAccounts.find(acc => 
+      
+      // First check for Gmail account with matching email
+      let existingAccount = existingAccounts.find(acc => 
         acc.email === emailAddress && acc.provider === 'gmail'
       );
+      
+      // If no exact match, look for any disconnected placeholder Gmail account
+      if (!existingAccount) {
+        existingAccount = existingAccounts.find(acc => 
+          acc.provider === 'gmail' && 
+          (!acc.connected || acc.connected === false) &&
+          (!acc.accessToken || !acc.refreshToken)
+        );
+      }
       
       let accountId;
       
       if (existingAccount) {
-        // Update existing account with new tokens
+        console.log(`Updating existing Gmail account ${existingAccount.id}`);
+        
+        // Update existing account with new tokens and email
         await storage.updateEmailAccount(existingAccount.id, {
+          email: emailAddress,
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token || existingAccount.refreshToken,
           expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
           lastSynced: new Date(),
-          connected: true
+          connected: true,
+          settings: {
+            syncFrequency: "15min",
+            autoRespond: false,
+            signature: `${emailAddress}\nSent from MyCRM`
+          }
         });
         accountId = existingAccount.id;
+        
+        // Create activity to log the account update
+        await storage.createActivity({
+          userId,
+          activityType: "email_account_updated",
+          description: `Gmail account connected: ${emailAddress}`,
+          metadata: {
+            provider: 'gmail',
+            email: emailAddress,
+            timestamp: new Date().toISOString()
+          }
+        });
       } else {
+        console.log(`Creating new Gmail account for ${emailAddress}`);
+        
         // Save the new email account
         const newAccount = await storage.createEmailAccount({
           provider: 'gmail',
@@ -1485,7 +1518,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           expiresAt: new Date(Date.now() + (tokens.expires_in || 3600) * 1000),
-          lastSynced: new Date()
+          lastSynced: new Date(),
+          settings: {
+            syncFrequency: "15min",
+            autoRespond: false,
+            signature: `${emailAddress}\nSent from MyCRM`
+          }
         });
         accountId = newAccount.id;
         
@@ -1493,7 +1531,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createActivity({
           userId,
           activityType: "email_account_added",
-          description: `Gmail account added: ${emailAddress}`
+          description: `Gmail account added: ${emailAddress}`,
+          metadata: {
+            provider: 'gmail',
+            email: emailAddress,
+            timestamp: new Date().toISOString()
+          }
         });
       }
       

@@ -931,7 +931,7 @@ export class MemStorage implements IStorage {
       {
         userId: 1,
         provider: "gmail",
-        email: "michael@example.com",
+        email: "Connect Your Gmail Account",
         accessToken: null,
         refreshToken: null,
         connected: false,
@@ -939,7 +939,7 @@ export class MemStorage implements IStorage {
         settings: {
           syncFrequency: "15min",
           autoRespond: false,
-          signature: "Michael Scott\nRegional Manager\nDunder Mifflin Paper Company"
+          signature: "Your Signature\nYour Company"
         }
       }
     ];
