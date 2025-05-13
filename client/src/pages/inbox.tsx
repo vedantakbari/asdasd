@@ -129,6 +129,13 @@ const Inbox: React.FC = () => {
     imapPassword: '',
   });
   
+  // Currently connected email account
+  const [emailAccount, setEmailAccount] = useState({
+    email: '',
+    displayName: '',
+    connected: false
+  });
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -204,10 +211,19 @@ const Inbox: React.FC = () => {
   
   // Set default selected account when accounts are loaded
   useEffect(() => {
-    if (emailAccounts && emailAccounts.length > 0 && !selectedAccountId) {
+    if (Array.isArray(emailAccounts) && emailAccounts.length > 0 && !selectedAccountId) {
       // Find default account or use the first one
       const defaultAccount = emailAccounts.find((account: EmailAccount) => account.isDefault) || emailAccounts[0];
-      setSelectedAccountId(defaultAccount.id);
+      if (defaultAccount) {
+        setSelectedAccountId(defaultAccount.id);
+        
+        // Update the connected email account state
+        setEmailAccount({
+          email: defaultAccount.email,
+          displayName: defaultAccount.displayName || defaultAccount.email.split('@')[0],
+          connected: true
+        });
+      }
     }
   }, [emailAccounts, selectedAccountId]);
   
@@ -270,10 +286,13 @@ const Inbox: React.FC = () => {
   const handleConnectEmail = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!emailFormData.email || !emailFormData.smtpHost || !emailFormData.smtpUsername || !emailFormData.smtpPassword) {
+    // In demo mode, we simplify the email account connection
+    // Just create a basic account with email and display name
+    
+    if (!emailAccount.email) {
       toast({
-        title: 'Missing Required Fields',
-        description: 'Please fill in all required fields.',
+        title: 'Missing Email Address',
+        description: 'Please enter an email address to connect.',
         variant: 'destructive'
       });
       return;
@@ -281,17 +300,19 @@ const Inbox: React.FC = () => {
     
     // Create account via mutation
     createAccountMutation.mutate({
-      email: emailFormData.email,
-      displayName: emailFormData.displayName || emailFormData.email.split('@')[0],
-      smtpHost: emailFormData.smtpHost,
-      smtpPort: emailFormData.smtpPort,
-      smtpUsername: emailFormData.smtpUsername,
-      smtpPassword: emailFormData.smtpPassword,
-      imapHost: emailFormData.imapHost || emailFormData.smtpHost.replace('smtp', 'imap'),
-      imapPort: emailFormData.imapPort,
-      imapUsername: emailFormData.imapUsername || emailFormData.smtpUsername,
-      imapPassword: emailFormData.imapPassword || emailFormData.smtpPassword,
+      email: emailAccount.email,
+      displayName: emailAccount.displayName || emailAccount.email.split('@')[0],
+      provider: 'smtp',
+      smtpHost: 'smtp.example.com', // Demo values
+      smtpPort: '587',
+      password: 'demo-password',
       isDefault: emailAccounts.length === 0 // Set as default if this is the first account
+    });
+    
+    // Update the connected state
+    setEmailAccount({
+      ...emailAccount,
+      connected: true
     });
     
     // Reset form after submission
@@ -402,8 +423,10 @@ const Inbox: React.FC = () => {
   
   // Get unread count
   const unreadCount = React.useMemo(() => {
-    return emailMessages?.filter((email: any) => 
-      email.folder === 'inbox' && !email.read
+    if (!Array.isArray(emailMessages)) return 0;
+    
+    return emailMessages.filter((email: any) => 
+      email && email.folder === 'inbox' && !email.read
     ).length || 0;
   }, [emailMessages]);
   
@@ -764,7 +787,7 @@ const Inbox: React.FC = () => {
                 <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-blue-700">
                   <p className="font-medium mb-1">Demo Mode Notice</p>
-                  <p>This is a simplified demonstration of email integration. In a production CRM, you would connect to actual email servers or use services like Gmail/Outlook API.</p>
+                  <p>This is a simplified demonstration of email integration. In a real CRM system, you would connect to actual email servers or use services like Gmail/Outlook API. No real emails will be sent or received.</p>
                 </div>
               </div>
             </div>
