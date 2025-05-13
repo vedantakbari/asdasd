@@ -16,6 +16,7 @@ import {
 } from "@shared/schema";
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
 import * as googleService from "./googleService";
+import { isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
