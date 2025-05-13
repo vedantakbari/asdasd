@@ -17,12 +17,12 @@ import Payments from "@/pages/payments";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
 import EmailSync from "@/pages/email-sync"; // New Email Sync page
-import NotFound from "@/pages/not-found";
-import LandingPage from "@/pages/landing";
-import AboutPage from "@/pages/about";
-import ContactPage from "@/pages/contact";
-import FAQPage from "@/pages/faq";
-import PrivacyPage from "@/pages/privacy";
+import NotFound from "./pages/not-found";
+import LandingPage from "./pages/landing";
+import AboutPage from "./pages/about";
+import ContactPage from "./pages/contact";
+import FAQPage from "./pages/faq";
+import PrivacyPage from "./pages/privacy";
 import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
 
 function Router() {
