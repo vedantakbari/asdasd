@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import LandingLayout from '@/components/landing/landing-layout';
+import LandingLayout from '../components/landing/landing-layout';
 
 const FAQPage = () => {
   return (

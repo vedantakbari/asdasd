@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { Button } from '@/components/ui/button';
-import LandingLayout from '@/components/landing/landing-layout';
+import LandingLayout from '../components/landing/landing-layout';
 
 const PrivacyPolicyPage = () => {
   return (
