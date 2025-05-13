@@ -24,7 +24,11 @@ const leadSchema = insertLeadSchema.extend({
   value: z.string().optional().transform(val => (val === '' ? undefined : parseFloat(val))),
   isClient: z.boolean().optional(),
   kanbanLane: z.string().optional(),
-  nextActivityDate: z.string().optional().transform(val => val === '' ? undefined : val),
+  nextActivityDate: z.string().optional().transform(val => {
+    if (val === '') return undefined;
+    // Convert string date to Date object
+    return new Date(val);
+  }),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
@@ -42,6 +46,8 @@ const LeadForm: React.FC<LeadFormProps> = ({ lead, isEdit = false, isClient = fa
     ? {
         ...lead,
         value: lead.value !== null ? String(lead.value) : '',
+        // Format the date for the input if it exists
+        nextActivityDate: lead.nextActivityDate ? new Date(lead.nextActivityDate).toISOString().slice(0, 16) : '',
       }
     : {
         status: isClientParam ? LeadStatus.CLIENT : LeadStatus.NEW,
