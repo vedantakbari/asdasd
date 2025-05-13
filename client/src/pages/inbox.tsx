@@ -97,12 +97,14 @@ const Inbox: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Check Google API credentials status
-  const { data: googleCredentialsStatus } = useQuery({
+  const { data: googleCredentialsStatus, refetch: refetchCredentialsStatus } = useQuery({
     queryKey: ['/api/google/credentials-status'],
     queryFn: async () => {
       const res = await apiRequest('GET', '/api/google/credentials-status');
       return res.json();
-    }
+    },
+    // Refresh more frequently to catch credential updates
+    refetchInterval: 10000
   });
   
   // Check for status in URL (after redirecting back from OAuth)
