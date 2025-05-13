@@ -16,6 +16,7 @@ import Inbox from "@/pages/inbox"; // New Inbox page
 import Payments from "@/pages/payments";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
+import EmailSync from "@/pages/email-sync"; // New Email Sync page
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -35,6 +36,7 @@ function Router() {
       <Route path="/payments" component={Payments} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />
+      <Route path="/email-sync" component={EmailSync} />
       <Route path="/" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
