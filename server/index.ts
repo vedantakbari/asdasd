@@ -7,11 +7,8 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add health check routes for both root and API endpoint
-app.get("/", (_req, res) => {
-  res.status(200).send("OK");
-});
-
+// Add health check route for API endpoint only
+// Don't add a root handler as that should be handled by the frontend router
 app.get("/api/health", (_req, res) => {
   res.status(200).send("OK");
 });
