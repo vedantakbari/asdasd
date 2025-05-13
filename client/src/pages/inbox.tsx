@@ -96,23 +96,34 @@ const Inbox: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Check Google API credentials status
+  const { data: googleCredentialsStatus } = useQuery({
+    queryKey: ['/api/google/credentials-status'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/google/credentials-status');
+      return res.json();
+    }
+  });
+  
   // Check for status in URL (after redirecting back from OAuth)
   useEffect(() => {
     // Check URL params for OAuth status
     const url = new URL(window.location.href);
     const status = url.searchParams.get('status');
     const accountId = url.searchParams.get('accountId');
+    const reason = url.searchParams.get('reason');
     
     if (status) {
       // Remove the parameters
       url.searchParams.delete('status');
       url.searchParams.delete('accountId');
+      url.searchParams.delete('reason');
       window.history.replaceState({}, document.title, url.toString());
       
       if (status === 'success') {
         toast({
           title: 'Email Account Connected',
-          description: 'Your email account has been connected successfully.',
+          description: 'Your Gmail account has been connected successfully.',
           variant: 'default'
         });
         
@@ -125,17 +136,38 @@ const Inbox: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['/api/email/accounts'] });
         queryClient.invalidateQueries({ queryKey: ['/api/email/messages'] });
       } else if (status === 'error') {
-        toast({
-          title: 'Connection Failed',
-          description: 'There was an error connecting your email account. Please try again.',
-          variant: 'destructive'
-        });
+        if (reason === 'missing_credentials') {
+          toast({
+            title: 'Google API Credentials Required',
+            description: 'To connect Gmail, you need to provide Google API credentials in your environment variables.',
+            variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Connection Failed',
+            description: 'There was an error connecting your email account. Please try again.',
+            variant: 'destructive'
+          });
+        }
       } else if (status === 'account_exists') {
         toast({
           title: 'Account Already Connected',
           description: 'This email account is already connected to your profile.',
           variant: 'default'
         });
+      }
+    }
+    
+    // Check if Google credentials are missing and show toast only once
+    if (googleCredentialsStatus && googleCredentialsStatus.isConfigured === false) {
+      const hasShownCredentialsWarning = sessionStorage.getItem('shown_credentials_warning');
+      if (!hasShownCredentialsWarning) {
+        toast({
+          title: 'Gmail Connection Requires Setup',
+          description: 'To connect Gmail accounts, you need to provide Google API credentials.',
+          variant: 'destructive'
+        });
+        sessionStorage.setItem('shown_credentials_warning', 'true');
       }
     }
     
@@ -674,7 +706,26 @@ const Inbox: React.FC = () => {
                 </p>
                 <Button 
                   className="w-full bg-blue-500 hover:bg-blue-600 text-white" 
+                  disabled={googleCredentialsStatus && !googleCredentialsStatus.isConfigured}
                   onClick={() => {
+                    // Check if Google credentials are configured
+                    if (googleCredentialsStatus && !googleCredentialsStatus.isConfigured) {
+                      toast({
+                        title: 'Google API Credentials Required',
+                        description: 'To connect Gmail, you need to provide Google API credentials.',
+                        variant: 'destructive'
+                      });
+                      
+                      // Ask for Google credentials
+                      toast({
+                        title: 'Setup Required',
+                        description: 'Please provide GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI environment variables.',
+                        variant: 'destructive'
+                      });
+                      
+                      return;
+                    }
+                    
                     // Store a flag in sessionStorage to indicate OAuth is in progress
                     sessionStorage.setItem('googleOAuthInProgress', 'true');
                     

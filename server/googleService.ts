@@ -47,6 +47,10 @@ export function createAuthClient(): OAuth2Client {
  * Generate the authorization URL
  */
 export function getAuthUrl(state?: string): string {
+  if (!hasValidCredentials()) {
+    throw new Error('Cannot generate auth URL: Google API credentials are missing or incomplete');
+  }
+  
   const oauth2Client = createAuthClient();
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -54,6 +58,8 @@ export function getAuthUrl(state?: string): string {
     prompt: 'consent',
     state
   });
+  
+  console.log(`Generated Google auth URL with state: ${state ? state.substring(0, 20) + '...' : 'none'}`);
   return url;
 }
 
@@ -61,9 +67,26 @@ export function getAuthUrl(state?: string): string {
  * Exchange authorization code for tokens
  */
 export async function getTokens(code: string): Promise<any> {
+  if (!hasValidCredentials()) {
+    throw new Error('Cannot exchange token: Google API credentials are missing or incomplete');
+  }
+  
   const oauth2Client = createAuthClient();
-  const { tokens } = await oauth2Client.getToken(code);
-  return tokens;
+  
+  try {
+    console.log('Exchanging authorization code for tokens');
+    const { tokens } = await oauth2Client.getToken(code);
+    console.log('Successfully obtained tokens');
+    
+    if (!tokens.refresh_token) {
+      console.warn('Warning: No refresh token was returned. User may need to revoke access and try again.');
+    }
+    
+    return tokens;
+  } catch (error) {
+    console.error('Error exchanging code for tokens:', error);
+    throw error;
+  }
 }
 
 /**

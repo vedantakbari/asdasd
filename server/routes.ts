@@ -1410,6 +1410,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google OAuth Routes
   app.get("/api/auth/google", (req, res) => {
     try {
+      // Check if Google API credentials are configured
+      if (!googleService.hasValidCredentials()) {
+        console.error("Google API credentials are not configured");
+        return res.redirect('/inbox?status=error&reason=missing_credentials');
+      }
+      
       // Initialize OAuth flow for Gmail access
       const userId = 1; // Using default user for testing, normally from req.user.id
       
@@ -1423,15 +1429,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         random: Math.random().toString(36).substring(2)
       })).toString('base64');
       
-      // Generate auth URL with proper scopes for Gmail access
-      const authUrl = googleService.getAuthUrl(state);
-      
-      console.log(`Redirecting user to Google OAuth URL`);
-      
-      res.redirect(authUrl);
+      try {
+        // Generate auth URL with proper scopes for Gmail access
+        const authUrl = googleService.getAuthUrl(state);
+        
+        console.log(`Redirecting user to Google OAuth URL`);
+        
+        // Store a flag in session storage to track the OAuth flow
+        if (req.session) {
+          req.session.googleOAuthInProgress = true;
+        }
+        
+        return res.redirect(authUrl);
+      } catch (error) {
+        console.error("Error generating Google auth URL:", error);
+        return res.redirect('/inbox?status=error&reason=auth_url_generation_failed');
+      }
     } catch (error) {
       console.error("Error initiating Google OAuth:", error);
-      res.redirect('/inbox?status=error&reason=oauth_start_failed');
+      return res.redirect('/inbox?status=error&reason=oauth_start_failed');
     }
   });
   
