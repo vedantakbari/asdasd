@@ -39,7 +39,11 @@ import {
   DollarSign,
   History,
   Activity,
-  MessageSquare
+  MessageSquare,
+  Calendar,
+  CheckCircle,
+  MailPlus,
+  ListPlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link, useLocation } from 'wouter';
@@ -80,7 +84,9 @@ const ActivityHistory = ({ clientId }: { clientId: number }) => {
   }
 
   if (activities.length === 0) {
-    return null; // Don't render anything if no activities
+    return (
+      <div className="text-sm text-gray-500 italic mt-2">No activity history yet</div>
+    );
   }
 
   // Activity icon mapping
@@ -88,17 +94,67 @@ const ActivityHistory = ({ clientId }: { clientId: number }) => {
     switch (type) {
       case 'email_sent':
         return <Mail className="h-4 w-4 text-blue-500" />;
+      case 'email_initiated':
+        return <MailPlus className="h-4 w-4 text-blue-400" />;
       case 'note_added':
         return <MessageSquare className="h-4 w-4 text-green-500" />;
       case 'task_completed': 
-        return <Activity className="h-4 w-4 text-purple-500" />;
+        return <CheckCircle className="h-4 w-4 text-purple-500" />;
+      case 'task_created':
+        return <ListPlus className="h-4 w-4 text-indigo-500" />;
+      case 'appointment_scheduled':
+        return <Calendar className="h-4 w-4 text-orange-500" />;
+      case 'call_completed':
+        return <Phone className="h-4 w-4 text-green-600" />;
+      case 'payment_received':
+        return <DollarSign className="h-4 w-4 text-emerald-500" />;
       default:
         return <History className="h-4 w-4 text-gray-500" />;
     }
   };
   
+  // Format the display of activity details based on type
+  const getActivityDetails = (activity: ActivityType) => {
+    // Render different activity types differently
+    if (activity.activityType === 'email_sent' && activity.metadata) {
+      // If this is an email activity and has metadata
+      const metadata = activity.metadata as any;
+      
+      return (
+        <>
+          <p className="text-sm font-medium">{activity.description}</p>
+          {metadata?.subject && (
+            <div className="bg-gray-50 text-xs p-2 rounded mt-1 border border-gray-100">
+              <p className="text-gray-700"><span className="font-medium">Subject:</span> {metadata.subject}</p>
+              {metadata.preview && (
+                <p className="text-gray-500 mt-1 line-clamp-2">{metadata.preview}</p>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-1">
+            {format(new Date(activity.createdAt), 'MMMM d, yyyy h:mm a')}
+          </p>
+        </>
+      );
+    }
+    
+    // Default rendering for other activity types
+    return (
+      <>
+        <p className="text-sm font-medium">{activity.description}</p>
+        <p className="text-xs text-gray-500">
+          {format(new Date(activity.createdAt), 'MMMM d, yyyy h:mm a')}
+        </p>
+      </>
+    );
+  };
+  
   return (
-    <>
+    <div className="space-y-4 mt-2">
+      <h3 className="font-semibold text-sm mb-2">
+        Activity History <span className="text-gray-500 font-normal">({activities.length})</span>
+      </h3>
+      
       {activities.map((activity, index) => (
         <div key={index} className="relative">
           <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-indigo-400"></div>
@@ -106,16 +162,13 @@ const ActivityHistory = ({ clientId }: { clientId: number }) => {
             <div className="mr-2 mt-0.5">
               {getActivityIcon(activity.activityType)}
             </div>
-            <div>
-              <p className="text-sm font-medium">{activity.description}</p>
-              <p className="text-xs text-gray-500">
-                {format(new Date(activity.createdAt), 'MMMM d, yyyy h:mm a')}
-              </p>
+            <div className="flex-1">
+              {getActivityDetails(activity)}
             </div>
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 };
 
