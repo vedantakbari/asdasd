@@ -1867,7 +1867,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const domain = req.headers.host || '';
       const currentUrl = `${protocol}://${domain}`;
       
-      // Get all the possible redirect URIs that could work
+      // Get only the essential redirect URIs that must be added to Google Cloud Console
+      const essentialURIs = googleService.getEssentialRedirectURIs();
+      
+      // Get all the possible redirect URIs that could work (for advanced troubleshooting)
       const allPossibleURIs = googleService.getAllPossibleRedirectURIs();
       
       // Create the expected callback URL based on the current request

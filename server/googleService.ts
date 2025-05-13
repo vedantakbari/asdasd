@@ -60,15 +60,49 @@ export function hasValidCredentials(): boolean {
   return !!(getClientId() && getClientSecret() && getRedirectUri());
 }
 
-// Helper function to get all possible redirect URIs
+/**
+ * Gets the most important redirect URIs that should be registered in Google Cloud Console
+ * This returns a small subset of the most critical URIs to avoid hitting Google's limit
+ */
+export function getEssentialRedirectURIs(): string[] {
+  const essentialURIs: string[] = [];
+  
+  // Add the primary configured URI from environment
+  const configuredUri = getRedirectUri();
+  if (configuredUri) {
+    essentialURIs.push(configuredUri);
+  }
+  
+  // Add the alternative URI
+  const altUri = getAltRedirectUri();
+  if (altUri && altUri !== configuredUri) {
+    essentialURIs.push(altUri);
+  }
+  
+  // Add just one or two of the most common Replit domain patterns that are stable
+  // Replit domains follow patterns, so we prioritize the most stable ones
+  const REPL_ID = process.env.REPL_ID;
+  if (REPL_ID) {
+    // Add only one variant (the most common one)
+    const stableReplotUri = `https://${REPL_ID}.id.replit.dev/api/auth/google/callback`;
+    if (!essentialURIs.includes(stableReplotUri)) {
+      essentialURIs.push(stableReplotUri);
+    }
+  }
+  
+  return essentialURIs;
+}
+
+// Helper function to get all possible redirect URIs for fallback mechanisms
 export function getAllPossibleRedirectURIs(): string[] {
   const redirectURIs: string[] = [];
+  
+  // Start with the essential URIs
+  redirectURIs.push(...getEssentialRedirectURIs());
   
   // Add the configured redirect URI from environment variable
   const configuredUri = getRedirectUri();
   if (configuredUri) {
-    redirectURIs.push(configuredUri);
-    
     // Extract the domain from the configured URI
     const configuredUriObj = new URL(configuredUri);
     const configuredDomain = configuredUriObj.hostname;
@@ -78,14 +112,16 @@ export function getAllPossibleRedirectURIs(): string[] {
     for (const variant of domainVariants) {
       if (variant !== configuredDomain) {
         const newUri = configuredUri.replace(configuredDomain, variant);
-        redirectURIs.push(newUri);
+        if (!redirectURIs.includes(newUri)) {
+          redirectURIs.push(newUri);
+        }
       }
     }
   }
   
   // Add the alternative Replit redirect URI
   const altUri = getAltRedirectUri();
-  if (altUri) {
+  if (altUri && !redirectURIs.includes(altUri)) {
     redirectURIs.push(altUri);
     
     // Extract domain from altUri and add variants
@@ -98,7 +134,9 @@ export function getAllPossibleRedirectURIs(): string[] {
       for (const variant of altDomainVariants) {
         if (variant !== altDomain) {
           const newUri = altUri.replace(altDomain, variant);
-          redirectURIs.push(newUri);
+          if (!redirectURIs.includes(newUri)) {
+            redirectURIs.push(newUri);
+          }
         }
       }
     } catch (error) {
@@ -108,17 +146,27 @@ export function getAllPossibleRedirectURIs(): string[] {
   
   // Add common Replit domains if we can detect them
   if (REPL_ID) {
-    // Add .replit.dev domain variants
-    redirectURIs.push(`https://${REPL_ID}.id.repl.co/api/auth/google/callback`);
-    redirectURIs.push(`https://${REPL_ID}.id.replit.app/api/auth/google/callback`);
-    redirectURIs.push(`https://${REPL_ID}.id.replit.dev/api/auth/google/callback`);
+    // Common Replit domain patterns
+    const replitVariants = [
+      `https://${REPL_ID}.id.repl.co/api/auth/google/callback`,
+      `https://${REPL_ID}.id.replit.app/api/auth/google/callback`,
+      `https://${REPL_ID}.id.replit.dev/api/auth/google/callback`,
+      `https://-${REPL_ID}.id.repl.co/api/auth/google/callback`,
+      `https://-${REPL_ID}.id.replit.app/api/auth/google/callback`,
+      `https://-${REPL_ID}.id.replit.dev/api/auth/google/callback`
+    ];
     
-    // Add variants with hyphens
-    redirectURIs.push(`https://-${REPL_ID}.id.repl.co/api/auth/google/callback`);
-    redirectURIs.push(`https://-${REPL_ID}.id.replit.app/api/auth/google/callback`);
-    redirectURIs.push(`https://-${REPL_ID}.id.replit.dev/api/auth/google/callback`);
+    // Add each variant, checking for duplicates
+    for (const uri of replitVariants) {
+      if (!redirectURIs.includes(uri)) {
+        redirectURIs.push(uri);
+      }
+    }
     
     // Add Replit preview domains if we can detect the slug and owner
+    const REPL_SLUG = process.env.REPL_SLUG;
+    const REPL_OWNER = process.env.REPL_OWNER;
+    
     if (REPL_SLUG && REPL_OWNER) {
       const baseDomains = [
         `https://${REPL_SLUG}.${REPL_OWNER}.repl.co/api/auth/google/callback`,
@@ -128,7 +176,9 @@ export function getAllPossibleRedirectURIs(): string[] {
       ];
       
       for (const domain of baseDomains) {
-        redirectURIs.push(domain);
+        if (!redirectURIs.includes(domain)) {
+          redirectURIs.push(domain);
+        }
       }
     }
   }
