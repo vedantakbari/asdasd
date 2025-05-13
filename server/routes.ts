@@ -1587,6 +1587,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Google OAuth callback received");
     console.log("Query parameters:", req.query);
     
+    // Log detailed request information to help debug the 403 issue
+    console.log("Detailed callback request info:");
+    console.log("- Headers:", req.headers);
+    console.log("- Protocol:", req.protocol);
+    console.log("- Host:", req.get('host'));
+    console.log("- Original URL:", req.originalUrl);
+    console.log("- Path:", req.path);
+    
     // Check for error from Google
     if (req.query.error) {
       console.error('Google OAuth error:', req.query.error);
@@ -1603,8 +1611,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Exchanging code for tokens...');
       
-      // Exchange code for tokens
-      const tokens = await googleService.getTokens(code as string);
+      // Extract state to get the callback URL used during the OAuth start
+      let originalCallbackUrl = '';
+      if (state) {
+        try {
+          const parsedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
+          originalCallbackUrl = parsedState.callbackUrl || '';
+          console.log('Original callback URL from state:', originalCallbackUrl);
+        } catch (e) {
+          console.error("Error parsing state for callback URL:", e);
+        }
+      }
+      
+      // Create an OAuth client with the same callback URL used during the initial request
+      // This is critical for resolving the 403 error
+      const oauth2Client = originalCallbackUrl 
+        ? googleService.createAuthClient(true, originalCallbackUrl)
+        : googleService.createAuthClient();
+      
+      // Exchange the code directly with the OAuth client that has the matching redirect URI
+      console.log('Using correctly matched OAuth client for token exchange');
+      
+      let tokens;
+      try {
+        // Get tokens from the code
+        const { tokens: oauthTokens } = await oauth2Client.getToken(code as string);
+        tokens = oauthTokens;
+        console.log('Tokens received directly via OAuth client');
+      } catch (tokenExchangeError) {
+        console.error('Error during token exchange with matched client:', tokenExchangeError);
+        
+        // Fallback to our standard method as a last resort
+        console.log('Falling back to standard getTokens method...');
+        tokens = await googleService.getTokens(code as string);
+      }
       
       console.log('Tokens received:', tokens ? 'success' : 'failure');
       
