@@ -256,6 +256,52 @@ const Settings: React.FC = () => {
                     </ol>
                   </div>
                   
+                  {/* Google API Configuration Section */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+                    <h4 className="text-blue-800 font-medium mb-2">Google API Configuration</h4>
+                    <p className="text-blue-700 text-sm mb-4">
+                      For Gmail integration to work properly, you need to configure your Google OAuth credentials.
+                      Please follow these steps to ensure your Google OAuth is properly configured:
+                    </p>
+                    <ol className="text-blue-700 text-sm space-y-2 ml-4 list-decimal mb-4">
+                      <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" className="underline">Google Cloud Console</a></li>
+                      <li>Select your project or create a new one</li>
+                      <li>Go to "Credentials" and create an OAuth Client ID</li>
+                      <li>Add the following Authorized redirect URIs to your OAuth client:</li>
+                    </ol>
+                    <div className="bg-white p-3 rounded border border-blue-200 text-xs font-mono mb-4 overflow-x-auto">
+                      {window.location.origin}/api/auth/google/callback<br/>
+                      https://workspace.brian581.repl.co/api/auth/google/callback
+                    </div>
+                    <p className="text-blue-700 text-sm mb-2">
+                      After configuring the redirect URIs in Google Cloud Console, try connecting your Gmail account again.
+                    </p>
+                    <div className="mt-4">
+                      <Button 
+                        variant="outline" 
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/auth/google/config');
+                            const data = await response.json();
+                            
+                            // Format the redirect URIs as a list
+                            const redirectUris = data.allPossibleRedirectURIs.map(uri => 
+                              `• ${uri}`
+                            ).join('\n');
+                            
+                            alert(`Google OAuth Configuration Details\n\nExpected callback URL: ${data.expectedCallbackUrl}\n\nConfigured callback URL: ${data.configuredCallbackUrl}\n\nAll possible redirect URIs to add to Google Cloud Console:\n${redirectUris}`);
+                          } catch (error) {
+                            console.error('Failed to check Google config:', error);
+                            alert('Error checking Google configuration');
+                          }
+                        }}
+                      >
+                        Check OAuth Configuration
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Button className="flex items-center gap-2" onClick={() => window.location.href = '/inbox'}>
                       <svg viewBox="0 0 48 48" width="24" height="24">
