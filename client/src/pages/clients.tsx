@@ -1,25 +1,49 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Lead, KanbanLane } from '@shared/schema';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Lead, KanbanLane, Pipeline } from '@shared/schema';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Plus, 
   Phone, 
   Mail, 
   MoreVertical, 
   Filter, 
-  CalendarPlus 
+  CalendarPlus,
+  PencilLine,
+  DollarSign,
+  History,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link, useLocation } from 'wouter';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 interface KanbanColumn {
   id: string;
@@ -27,10 +51,31 @@ interface KanbanColumn {
   items: Lead[];
 }
 
+interface DetailModalState {
+  isOpen: boolean;
+  client: Lead | null;
+}
+
 const Clients: React.FC = () => {
   const [filter, setFilter] = useState<string | null>(null);
   const [draggingClient, setDraggingClient] = useState<Lead | null>(null);
   const [location] = useLocation();
+  const [selectedPipelineId, setSelectedPipelineId] = useState<number | null>(null);
+  const [renameLaneDialog, setRenameLaneDialog] = useState<{isOpen: boolean, pipelineId: number | null, laneId: string | null, currentName: string}>({
+    isOpen: false,
+    pipelineId: null,
+    laneId: null,
+    currentName: ''
+  });
+  const [newLaneName, setNewLaneName] = useState('');
+  const [detailModal, setDetailModal] = useState<DetailModalState>({
+    isOpen: false,
+    client: null
+  });
+  const [createPipelineDialog, setCreatePipelineDialog] = useState<boolean>(false);
+  const [newPipelineName, setNewPipelineName] = useState('');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   // If on the new client page, redirect to the leads form with isClient=true
   if (location === '/clients/new') {
@@ -39,8 +84,143 @@ const Clients: React.FC = () => {
   }
   
   // Fetch clients (leads with isClient = true)
-  const { data: clients = [], isLoading } = useQuery<Lead[]>({
+  const { data: clients = [], isLoading: isLoadingClients } = useQuery<Lead[]>({
     queryKey: ['/api/leads/clients'],
+  });
+  
+  // Fetch pipelines
+  const { data: pipelines = [], isLoading: isLoadingPipelines } = useQuery<Pipeline[]>({
+    queryKey: ['/api/pipelines'],
+  });
+  
+  // Fetch the default pipeline
+  const { data: defaultPipeline, isLoading: isLoadingDefaultPipeline } = useQuery<Pipeline>({
+    queryKey: ['/api/pipelines/default'],
+    onSuccess: (data) => {
+      if (data && selectedPipelineId === null) {
+        setSelectedPipelineId(data.id);
+      }
+    },
+    // Don't show error if no default pipeline exists
+    onError: () => {}
+  });
+  
+  // Use selected pipeline or default pipeline or first pipeline
+  useEffect(() => {
+    if (!selectedPipelineId && pipelines.length > 0) {
+      // If default pipeline exists, use it
+      const defaultPipe = pipelines.find(p => p.isDefault);
+      if (defaultPipe) {
+        setSelectedPipelineId(defaultPipe.id);
+      } else if (pipelines[0]) {
+        // Otherwise use the first pipeline
+        setSelectedPipelineId(pipelines[0].id);
+      }
+    }
+  }, [pipelines, selectedPipelineId]);
+  
+  // Mutation for moving clients between lanes
+  const moveClientMutation = useMutation({
+    mutationFn: async ({clientId, laneId, pipelineId}: {clientId: number, laneId: string, pipelineId?: number}) => {
+      return apiRequest('PATCH', `/api/clients/${clientId}/move`, { laneId, pipelineId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/leads/clients'] });
+      toast({
+        title: "Success",
+        description: "Client moved successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to move client. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error moving client:", error);
+    }
+  });
+  
+  // Mutation for creating a new pipeline
+  const createPipelineMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', '/api/pipelines', {
+        name,
+        description: `Pipeline for ${name}`,
+        lanes: Object.values(KanbanLane).map(lane => ({
+          id: lane,
+          name: lane
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+        }))
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+      setSelectedPipelineId(data.id);
+      setCreatePipelineDialog(false);
+      setNewPipelineName('');
+      toast({
+        title: "Success",
+        description: "New pipeline created",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create pipeline. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error creating pipeline:", error);
+    }
+  });
+  
+  // Mutation for renaming a lane
+  const renameLaneMutation = useMutation({
+    mutationFn: async ({pipelineId, laneId, name}: {pipelineId: number, laneId: string, name: string}) => {
+      return apiRequest('PATCH', `/api/pipelines/${pipelineId}/lanes/${laneId}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+      setRenameLaneDialog({isOpen: false, pipelineId: null, laneId: null, currentName: ''});
+      setNewLaneName('');
+      toast({
+        title: "Success",
+        description: "Lane renamed successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to rename lane. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error renaming lane:", error);
+    }
+  });
+  
+  // Mutation for setting a pipeline as default
+  const setDefaultPipelineMutation = useMutation({
+    mutationFn: async (pipelineId: number) => {
+      return apiRequest('POST', `/api/pipelines/${pipelineId}/set-default`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pipelines'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/pipelines/default'] });
+      toast({
+        title: "Success",
+        description: "Default pipeline updated",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to set default pipeline. Please try again.",
+        variant: "destructive"
+      });
+      console.error("Error setting default pipeline:", error);
+    }
   });
   
   // Filter clients if needed
@@ -48,15 +228,30 @@ const Clients: React.FC = () => {
     ? clients.filter(client => client.source === filter || client.ownerId === Number(filter))
     : clients;
   
+  // Get selected pipeline
+  const selectedPipeline = pipelines.find(p => p.id === selectedPipelineId) || defaultPipeline;
+  
   // Group clients by kanban lane
-  const kanbanLanes: KanbanColumn[] = Object.values(KanbanLane).map(lane => ({
-    id: lane,
-    title: lane
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' '),
-    items: filteredClients.filter(client => client.kanbanLane === lane)
-  }));
+  const kanbanLanes: KanbanColumn[] = selectedPipeline?.lanes 
+    ? selectedPipeline.lanes.map(lane => ({
+        id: lane.id,
+        title: lane.name || lane.id
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' '),
+        items: filteredClients.filter(client => 
+          client.kanbanLane === lane.id && 
+          (client.pipelineId === selectedPipelineId || (!client.pipelineId && selectedPipeline.isDefault))
+        )
+      }))
+    : Object.values(KanbanLane).map(lane => ({
+        id: lane,
+        title: lane
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' '),
+        items: filteredClients.filter(client => client.kanbanLane === lane)
+      }));
   
   // Handle drag start
   const handleDragStart = (client: Lead) => {
@@ -72,9 +267,15 @@ const Clients: React.FC = () => {
   const handleDrop = (e: React.DragEvent, laneId: string) => {
     e.preventDefault();
     if (draggingClient) {
-      // Here we would update the client's lane in the backend
-      // For now, we'll just log it
       console.log(`Moving client ${draggingClient.id} to lane ${laneId}`);
+      
+      // Call the API to update the client's lane
+      moveClientMutation.mutate({
+        clientId: draggingClient.id,
+        laneId,
+        pipelineId: selectedPipelineId || undefined
+      });
+      
       setDraggingClient(null);
     }
   };
@@ -85,6 +286,7 @@ const Clients: React.FC = () => {
       className="mb-3 cursor-pointer" 
       draggable
       onDragStart={() => handleDragStart(client)}
+      onClick={() => setDetailModal({ isOpen: true, client })}
     >
       <CardContent className="p-4">
         <div className="flex justify-between items-start mb-2">
@@ -95,25 +297,38 @@ const Clients: React.FC = () => {
             )}
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                 <Link href={`/leads/${client.id}`}>View Details</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                 <Link href={`/leads/${client.id}/edit`}>Edit Client</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => e.stopPropagation()}>
                 <CalendarPlus className="h-4 w-4 mr-2" />
                 Schedule Appointment
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        
+        {/* Deal value */}
+        {client.value && (
+          <div className="mb-2 flex items-center text-sm font-semibold text-green-600">
+            <DollarSign className="h-3.5 w-3.5 mr-1" />
+            {new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: 'USD',
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            }).format(client.value)}
+          </div>
+        )}
         
         {/* Contact information */}
         <div className="my-2 space-y-1">
@@ -159,6 +374,138 @@ const Clients: React.FC = () => {
       </CardContent>
     </Card>
   );
+  
+  // Client detail modal
+  const ClientDetailModal = () => {
+    const client = detailModal.client;
+    
+    if (!client) return null;
+    
+    return (
+      <Dialog open={detailModal.isOpen} onOpenChange={(open) => setDetailModal(prev => ({ ...prev, isOpen: open }))}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              {client.name}
+              {client.value && (
+                <span className="text-green-600 text-base font-normal">
+                  {new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                  }).format(client.value)}
+                </span>
+              )}
+            </DialogTitle>
+            {client.company && (
+              <DialogDescription>{client.company}</DialogDescription>
+            )}
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Contact Information</h3>
+              <div className="space-y-2">
+                {client.email && (
+                  <div className="flex items-center text-sm">
+                    <Mail className="h-4 w-4 mr-2 text-gray-500" />
+                    <a href={`mailto:${client.email}`} className="text-blue-600 hover:underline">
+                      {client.email}
+                    </a>
+                  </div>
+                )}
+                {client.phone && (
+                  <div className="flex items-center text-sm">
+                    <Phone className="h-4 w-4 mr-2 text-gray-500" />
+                    <a href={`tel:${client.phone}`} className="text-blue-600 hover:underline">
+                      {client.phone}
+                    </a>
+                  </div>
+                )}
+                {client.address && (
+                  <div className="text-sm">
+                    <span className="font-medium">Address:</span> {client.address}
+                  </div>
+                )}
+              </div>
+              
+              {client.notes && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold mb-2">Notes</h3>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">{client.notes}</p>
+                </div>
+              )}
+              
+              {client.labels && Array.isArray(client.labels) && client.labels.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold mb-2">Labels</h3>
+                  <div className="flex flex-wrap gap-1">
+                    {client.labels.map((label, idx) => (
+                      <Badge key={idx} variant="outline">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <h3 className="text-sm font-semibold mb-2 flex items-center">
+                <Activity className="h-4 w-4 mr-1" />
+                Activity & History
+              </h3>
+              <div className="border-l border-gray-200 pl-4 space-y-4">
+                {client.nextActivity && (
+                  <div className="relative">
+                    <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-blue-500"></div>
+                    <p className="text-sm font-medium">Next: {client.nextActivity}</p>
+                    {client.nextActivityDate && (
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(client.nextActivityDate), 'MMMM d, yyyy')}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Would normally fetch activities related to this client */}
+                <div className="relative">
+                  <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-gray-400"></div>
+                  <p className="text-sm font-medium">Client converted from lead</p>
+                  <p className="text-xs text-gray-500">
+                    {format(new Date(client.updatedAt), 'MMMM d, yyyy')}
+                  </p>
+                </div>
+                
+                <div className="relative">
+                  <div className="absolute -left-6 top-1 w-2 h-2 rounded-full bg-gray-400"></div>
+                  <p className="text-sm font-medium">Lead created</p>
+                  <p className="text-xs text-gray-500">
+                    {format(new Date(client.createdAt), 'MMMM d, yyyy')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <div className="flex justify-between w-full">
+              <Button variant="outline" asChild>
+                <Link href={`/leads/${client.id}/edit`}>Edit Client</Link>
+              </Button>
+              <div>
+                <Button variant="outline" className="mr-2" asChild>
+                  <Link href={`/calendar/new?leadId=${client.id}`}>Schedule Appointment</Link>
+                </Button>
+                <Button>Schedule Call</Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
   
   // Get unique sources for filtering
   const sources = Array.from(new Set(clients.map(client => client.source).filter(Boolean)));

@@ -1761,6 +1761,237 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.sendFile("index.html", { root: "./dist/public" });
   });
   
+  // Pipeline Management API
+  app.get("/api/pipelines", async (req, res) => {
+    try {
+      const pipelines = await storage.getPipelines();
+      res.json(pipelines);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pipelines" });
+    }
+  });
+  
+  app.get("/api/pipelines/default", async (req, res) => {
+    try {
+      const defaultPipeline = await storage.getDefaultPipeline();
+      if (!defaultPipeline) {
+        return res.status(404).json({ message: "No default pipeline found" });
+      }
+      res.json(defaultPipeline);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch default pipeline" });
+    }
+  });
+  
+  app.get("/api/pipelines/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const pipeline = await storage.getPipeline(id);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      res.json(pipeline);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pipeline" });
+    }
+  });
+  
+  app.post("/api/pipelines", async (req, res) => {
+    try {
+      // Parse and validate input
+      const requestData = req.body;
+      const validatedData = insertPipelineSchema.parse(requestData);
+      
+      const newPipeline = await storage.createPipeline(validatedData);
+      
+      // Create activity for pipeline creation
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_created",
+        description: `Pipeline "${newPipeline.name}" created`
+      });
+      
+      res.status(201).json(newPipeline);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid pipeline data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create pipeline" });
+    }
+  });
+  
+  app.patch("/api/pipelines/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const pipeline = await storage.getPipeline(id);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      const requestData = req.body;
+      const updatedPipeline = await storage.updatePipeline(id, requestData);
+      
+      // Create activity for pipeline update
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_updated",
+        description: `Pipeline "${pipeline.name}" updated`
+      });
+      
+      res.json(updatedPipeline);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update pipeline" });
+    }
+  });
+  
+  app.delete("/api/pipelines/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const pipeline = await storage.getPipeline(id);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      const success = await storage.deletePipeline(id);
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete pipeline" });
+      }
+      
+      // Create activity for pipeline deletion
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_deleted",
+        description: `Pipeline "${pipeline.name}" deleted`
+      });
+      
+      res.json({ success: true, message: "Pipeline deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete pipeline" });
+    }
+  });
+  
+  app.post("/api/pipelines/:id/set-default", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const pipeline = await storage.getPipeline(id);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      const updatedPipeline = await storage.setDefaultPipeline(id);
+      
+      // Create activity for setting default pipeline
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_set_default",
+        description: `Pipeline "${pipeline.name}" set as default`
+      });
+      
+      res.json(updatedPipeline);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to set default pipeline" });
+    }
+  });
+  
+  app.patch("/api/pipelines/:id/lanes/:laneId", async (req, res) => {
+    try {
+      const pipelineId = parseInt(req.params.id);
+      if (isNaN(pipelineId)) {
+        return res.status(400).json({ message: "Invalid pipeline ID format" });
+      }
+      
+      const laneId = req.params.laneId;
+      const { name } = req.body;
+      
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ message: "Lane name is required" });
+      }
+      
+      const pipeline = await storage.getPipeline(pipelineId);
+      if (!pipeline) {
+        return res.status(404).json({ message: "Pipeline not found" });
+      }
+      
+      const updatedPipeline = await storage.updateLaneInPipeline(pipelineId, laneId, name);
+      if (!updatedPipeline) {
+        return res.status(404).json({ message: "Lane not found in pipeline" });
+      }
+      
+      // Create activity for lane update
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "pipeline_lane_updated",
+        description: `Lane renamed to "${name}" in pipeline "${pipeline.name}"`
+      });
+      
+      res.json(updatedPipeline);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update pipeline lane" });
+    }
+  });
+  
+  // Moving clients between lanes in a pipeline
+  app.patch("/api/clients/:id/move", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const { laneId, pipelineId } = req.body;
+      
+      if (!laneId || typeof laneId !== 'string') {
+        return res.status(400).json({ message: "Lane ID is required" });
+      }
+      
+      // Get the client (which is a lead marked as client)
+      const client = await storage.getLead(id);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      if (!client.isClient) {
+        return res.status(400).json({ message: "This lead has not been converted to a client" });
+      }
+      
+      // Update the client's kanban lane
+      const updatedClient = await storage.updateLead(id, { 
+        kanbanLane: laneId,
+        pipelineId: pipelineId ? parseInt(pipelineId) : client.pipelineId
+      });
+      
+      // Create activity for moving client
+      await storage.createActivity({
+        userId: 1, // In a real app, this would be the authenticated user
+        activityType: "client_moved",
+        description: `Client "${client.name}" moved to new lane in pipeline`,
+        relatedLeadId: client.id
+      });
+      
+      res.json(updatedClient);
+    } catch (error) {
+      console.error("Error moving client:", error);
+      res.status(500).json({ message: "Failed to move client" });
+    }
+  });
+  
   // Universal catch-all route for all nested routes and parameterized URLs
   app.get('*', (req, res, next) => {
     // Skip API requests
