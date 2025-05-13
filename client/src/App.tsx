@@ -19,6 +19,10 @@ import Settings from "@/pages/settings";
 import EmailSync from "@/pages/email-sync"; // New Email Sync page
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import AboutPage from "@/pages/about";
+import ContactPage from "@/pages/contact";
+import FAQPage from "@/pages/faq";
+import PrivacyPage from "@/pages/privacy";
 import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
 
 function Router() {
@@ -41,11 +45,15 @@ function Router() {
     );
   }
 
-  // Show landing page for unauthenticated users
+  // Show landing pages for unauthenticated users
   if (!isAuthenticated) {
     return (
       <Switch>
         <Route path="/" component={LandingPage} />
+        <Route path="/about" component={AboutPage} />
+        <Route path="/contact" component={ContactPage} />
+        <Route path="/faq" component={FAQPage} />
+        <Route path="/privacy" component={PrivacyPage} />
         <Route component={LandingPage} />
       </Switch>
     );
