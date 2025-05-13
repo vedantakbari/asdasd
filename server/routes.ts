@@ -17,10 +17,14 @@ import {
 import { createPaymentIntent, isStripeConfigured } from "./stripe";
 import * as googleService from "./googleService";
 import { isAuthenticated } from "./replitAuth";
+import emailRoutes from "./routes/email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes
   const apiRouter = app.route("/api");
+  
+  // Register email routes
+  app.use("/api/email", emailRoutes);
   
   // Auth user endpoint
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {

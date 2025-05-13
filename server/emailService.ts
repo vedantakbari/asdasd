@@ -1,6 +1,6 @@
-import { storage } from "./storage";
-import { EmailAccount } from "@shared/schema";
-import nodemailer from "nodemailer";
+import nodemailer from 'nodemailer';
+import { storage } from './storage';
+import { type EmailAccount } from '@shared/schema';
 
 interface EmailMessage {
   from: string;
@@ -18,21 +18,35 @@ interface EmailMessage {
  * Email service for sending and managing emails
  */
 export class EmailService {
+  // Store transporter cache to avoid recreating for each email
+  private transporters: Map<number, nodemailer.Transporter> = new Map();
+  
   /**
    * Create a nodemailer transport for the given email account
    */
-  private createTransport(account: EmailAccount) {
-    return nodemailer.createTransport({
-      host: account.smtpHost || 'smtp.gmail.com',
-      port: account.smtpPort ? parseInt(account.smtpPort) : 587,
-      secure: account.useSSL || false,
+  private createTransport(account: EmailAccount): nodemailer.Transporter {
+    // Check if we already have a transporter for this account
+    if (this.transporters.has(account.id)) {
+      return this.transporters.get(account.id)!;
+    }
+    
+    // Create a new transporter
+    const transport = nodemailer.createTransport({
+      host: account.smtpHost,
+      port: account.smtpPort,
+      secure: account.smtpPort === 465, // true for 465, false for other ports
       auth: {
-        user: account.email,
-        pass: account.password,
+        user: account.smtpUsername,
+        pass: account.smtpPassword,
       }
     });
+    
+    // Store in cache
+    this.transporters.set(account.id, transport);
+    
+    return transport;
   }
-
+  
   /**
    * Send an email using the specified account
    */
@@ -40,48 +54,55 @@ export class EmailService {
     try {
       const account = await storage.getEmailAccount(accountId);
       
-      if (!account || !account.connected) {
-        throw new Error("Email account not found or not connected");
+      if (!account) {
+        console.error(`Email account with ID ${accountId} not found`);
+        return false;
       }
-
-      // Create transport
+      
       const transport = this.createTransport(account);
       
-      // Prepare email data
-      const emailData = {
-        from: `${message.fromName || account.displayName || ''} <${account.email}>`,
-        to: message.toName ? `${message.toName} <${message.to}>` : message.to,
+      // Build the email message
+      const mailOptions = {
+        from: message.fromName 
+          ? `"${message.fromName}" <${message.from || account.email}>`
+          : message.from || account.email,
+        to: message.toName
+          ? `"${message.toName}" <${message.to}>`
+          : message.to,
         subject: message.subject,
         text: message.text,
-        html: message.html,
+        html: message.html
       };
       
-      // Send email
-      await transport.sendMail(emailData);
+      // Send the email
+      const info = await transport.sendMail(mailOptions);
+      console.log('Email sent successfully:', info.messageId);
       
-      // Log email activity
-      if (message.relatedLeadId || message.relatedCustomerId) {
-        await storage.createActivity({
-          userId: account.userId,
-          activityType: 'email_sent',
-          description: `Email sent: ${message.subject}`,
-          relatedLeadId: message.relatedLeadId || null,
-          relatedCustomerId: message.relatedCustomerId || null,
-          metadata: {
-            to: message.to,
-            subject: message.subject,
-            snippet: message.text?.substring(0, 100) || ''
-          }
-        });
-      }
+      // Save the sent email to storage
+      await storage.saveEmailMessage({
+        accountId,
+        from: message.from || account.email,
+        fromName: message.fromName || account.displayName,
+        to: message.to,
+        toName: message.toName,
+        subject: message.subject,
+        textBody: message.text,
+        htmlBody: message.html,
+        sentDate: new Date(),
+        read: true,
+        folder: 'sent',
+        messageId: info.messageId,
+        relatedLeadId: message.relatedLeadId,
+        relatedCustomerId: message.relatedCustomerId
+      });
       
       return true;
     } catch (error) {
-      console.error("Error sending email:", error);
+      console.error('Error sending email:', error);
       return false;
     }
   }
-
+  
   /**
    * Get emails for a specific account and folder
    */
@@ -89,75 +110,79 @@ export class EmailService {
     try {
       const account = await storage.getEmailAccount(accountId);
       
-      if (!account || !account.connected) {
-        throw new Error("Email account not found or not connected");
+      if (!account) {
+        console.error(`Email account with ID ${accountId} not found`);
+        return [];
       }
-
-      // For now, we're returning simulated emails
-      // In a full implementation, we would connect to the email provider's API
-      // using IMAP or OAuth and retrieve actual emails
-      return this.generateSimulatedEmails(account, folder);
+      
+      // For now, get emails from storage (simulated)
+      // In a real implementation, we would fetch emails from the IMAP server
+      const emails = await storage.getEmailMessages(accountId, folder);
+      
+      // If no emails in storage, generate some simulated ones for demonstration
+      if (emails.length === 0 && folder === 'inbox') {
+        return this.generateSimulatedEmails(account, folder);
+      }
+      
+      return emails;
     } catch (error) {
-      console.error("Error fetching emails:", error);
+      console.error(`Error fetching emails for account ${accountId}:`, error);
       return [];
     }
   }
-
+  
   /**
    * Generate simulated emails for demonstration
    * In a real implementation, this would be replaced with actual email fetching
    */
   private generateSimulatedEmails(account: EmailAccount, folder: string): any[] {
+    if (folder !== 'inbox') {
+      return [];
+    }
+    
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
     
-    // Example emails would be returned if we're not connected to a real email service
-    const emails = [
+    const sampleEmails = [
       {
-        id: `${folder}-1`,
-        from: 'alice.johnson@example.com',
-        fromName: 'Alice Johnson',
+        accountId: account.id,
+        from: 'client1@example.com',
+        fromName: 'Potential Client',
         to: account.email,
-        toName: account.displayName || '',
-        subject: 'Interested in your services',
-        body: `Hello,\n\nI'm interested in getting a quote for your services. Could you please send me some information?\n\nBest regards,\nAlice Johnson`,
-        date: oneDayAgo,
+        toName: account.displayName,
+        subject: 'Interested in Your Services',
+        textBody: 'Hello,\n\nI came across your company and am interested in learning more about your services. Can you please provide some information?\n\nThank you,\nPotential Client',
+        sentDate: oneDayAgo,
+        receivedDate: oneDayAgo,
         read: false,
-        folder: folder === 'inbox' ? 'inbox' : folder,
-        leadId: null
+        folder: 'inbox',
+        messageId: `demo-${Date.now()}-1`
       },
       {
-        id: `${folder}-2`,
-        from: 'mike.smith@example.com',
-        fromName: 'Mike Smith',
+        accountId: account.id,
+        from: 'supplier@example.com',
+        fromName: 'Supplier Inc.',
         to: account.email,
-        toName: account.displayName || '',
-        subject: 'Follow-up from our meeting',
-        body: `Hi there,\n\nJust wanted to follow up after our meeting. I'm very interested in proceeding with the project we discussed.\n\nThanks,\nMike Smith`,
-        date: now,
-        read: false,
-        folder: folder === 'inbox' ? 'inbox' : folder,
-        leadId: 1
-      },
-      {
-        id: `${folder}-3`,
-        from: account.email,
-        fromName: account.displayName || '',
-        to: 'james.wilson@example.com',
-        toName: 'James Wilson',
-        subject: 'Your recent inquiry',
-        body: `Dear James,\n\nThank you for your interest in our services. As requested, I've attached a detailed proposal for your project.\n\nPlease let me know if you have any questions or would like to make any adjustments.\n\nBest regards,\n${account.displayName || 'Your Name'}`,
-        date: twoDaysAgo,
+        toName: account.displayName,
+        subject: 'Invoice #12345',
+        textBody: 'Please find attached your monthly invoice.\n\nRegards,\nSupplier Inc.',
+        sentDate: twoDaysAgo,
+        receivedDate: twoDaysAgo,
         read: true,
-        folder: folder === 'sent' ? 'sent' : folder,
-        leadId: null
+        folder: 'inbox',
+        messageId: `demo-${Date.now()}-2`
       }
     ];
     
-    // Filter by the requested folder
-    return emails.filter(email => email.folder === folder);
+    // Save these to storage so they persist
+    sampleEmails.forEach(async (email) => {
+      await storage.saveEmailMessage(email);
+    });
+    
+    return sampleEmails;
   }
 }
 
+// Singleton instance
 export const emailService = new EmailService();
