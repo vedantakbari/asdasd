@@ -2120,6 +2120,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email accounts API
   app.get("/api/email/accounts", async (req, res) => {
     try {
+      // Check if Google credentials are properly configured
+      if (!googleService.hasValidCredentials()) {
+        return res.status(400).json({ 
+          error: 'google_config_missing',
+          message: 'Google API credentials are not configured correctly' 
+        });
+      }
+      
       // In a real app with authentication, you'd use req.user.id
       const userId = 1; // Using default user for testing
       const accounts = await storage.getEmailAccounts(userId);

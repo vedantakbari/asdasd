@@ -43,9 +43,10 @@ app.use((req, res, next) => {
 });
 
 // Check for Google OAuth credentials
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  log("Warning: Google API credentials are not set. Gmail integration will not work properly.", "server");
-  log("Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.", "server");
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
+  log("Warning: Google API credentials are not set. Gmail integration will not work properly, but the application will continue to run.", "server");
+} else {
+  log("Google API credentials detected - Gmail integration enabled", "server");
 }
 
 (async () => {

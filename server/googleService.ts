@@ -103,19 +103,23 @@ export function getAllPossibleRedirectURIs(): string[] {
   // Add the configured redirect URI from environment variable
   const configuredUri = getRedirectUri();
   if (configuredUri) {
-    // Extract the domain from the configured URI
-    const configuredUriObj = new URL(configuredUri);
-    const configuredDomain = configuredUriObj.hostname;
-    
-    // Add variants of the configured domain
-    const domainVariants = generateDomainVariants(configuredDomain);
-    for (const variant of domainVariants) {
-      if (variant !== configuredDomain) {
-        const newUri = configuredUri.replace(configuredDomain, variant);
-        if (!redirectURIs.includes(newUri)) {
-          redirectURIs.push(newUri);
+    try {
+      // Extract the domain from the configured URI
+      const configuredUriObj = new URL(configuredUri);
+      const configuredDomain = configuredUriObj.hostname;
+      
+      // Add variants of the configured domain
+      const domainVariants = generateDomainVariants(configuredDomain);
+      for (const variant of domainVariants) {
+        if (variant !== configuredDomain) {
+          const newUri = configuredUri.replace(configuredDomain, variant);
+          if (!redirectURIs.includes(newUri)) {
+            redirectURIs.push(newUri);
+          }
         }
       }
+    } catch (error) {
+      console.error('Error parsing configured URI:', error);
     }
   }
   
@@ -203,8 +207,14 @@ const SCOPES = [
  * @param specificRedirectUri Optional specific redirect URI to use
  */
 export function createAuthClient(forceNew: boolean = false, specificRedirectUri?: string): OAuth2Client {
+  // Create a dummy client if credentials are missing to prevent app crashes
   if (!hasValidCredentials()) {
-    console.warn('Attempting to create auth client without valid credentials');
+    console.warn('Missing Google credentials - creating fallback OAuth client');
+    return new google.auth.OAuth2(
+      'dummy-client-id',
+      'dummy-client-secret',
+      'https://example.com/callback'
+    );
   }
   
   // Use the provided specific redirect URI if available

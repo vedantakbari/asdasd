@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Mail, Info, Plus, Trash2, Check, Edit2 } from 'lucide-react';
+import { AlertCircle, Mail, Info, Plus, Trash2, Check, Edit2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,6 +26,8 @@ const EmailSync: React.FC = () => {
   const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleConfigError, setGoogleConfigError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // State for sync settings
   const [syncSettings, setSyncSettings] = useState({
@@ -39,13 +41,22 @@ const EmailSync: React.FC = () => {
   useEffect(() => {
     const loadEmailAccounts = async () => {
       try {
+        setIsLoading(true);
         const response = await fetch('/api/email/accounts');
         if (response.ok) {
           const data = await response.json();
           setEmailAccounts(data);
+        } else {
+          // Check for specific Google configuration error
+          const errorData = await response.json().catch(() => ({}));
+          if (errorData.error === 'google_config_missing') {
+            setGoogleConfigError(true);
+          }
         }
       } catch (error) {
         console.error('Error loading email accounts:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -139,6 +150,20 @@ const EmailSync: React.FC = () => {
     }
   };
   
+  if (isLoading) {
+    return (
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <Header 
+          title="Email Sync" 
+          description="Connect and manage your email accounts"
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+        </div>
+      </main>
+    );
+  }
+  
   return (
     <main className="flex-1 flex flex-col overflow-hidden">
       <Header 
@@ -148,6 +173,29 @@ const EmailSync: React.FC = () => {
       
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
         <div className="max-w-3xl mx-auto space-y-8">
+          
+          {/* Google configuration error warning */}
+          {googleConfigError && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-medium text-red-800 mb-1">Google API Configuration Issue</h3>
+                    <p className="text-sm text-red-700">
+                      The Google API credentials are missing or incorrect. Gmail integration will not work properly until this is fixed.
+                    </p>
+                    <div className="mt-4">
+                      <Button variant="outline" className="text-red-700 border-red-300 hover:bg-red-100">
+                        View Setup Instructions
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Account Summary */}
           <Card>
             <CardContent className="pt-6">
