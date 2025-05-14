@@ -1,9 +1,9 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "npm install && npm run dev"
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist", "package-lock.json"]
+run = "chmod +x run.sh && ./run.sh"
+hidden = [".config", ".git", "node_modules", "dist", "package-lock.json"]
 
 [nix]
-channel = "stable-23_11"
+channel = "stable-24_05"
 
 [env]
 NODE_ENV = "development"
