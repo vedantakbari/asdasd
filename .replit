@@ -1,14 +1,33 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "npm run dev"
-hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
+run = "npm install && npm run dev"
+hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist", "package-lock.json"]
 
 [nix]
-channel = "stable-24_05"
+channel = "stable-23_11"
+
+[env]
+NODE_ENV = "development"
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = true
+
+[languages]
+
+[languages.javascript]
+pattern = "**/{*.js,*.jsx,*.ts,*.tsx}"
+
+[languages.javascript.languageServer]
+start = "typescript-language-server --stdio"
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "cloudrun"
 build = ["npm", "run", "build"]
-run = ["npm", "run", "start"]
+run = ["node", "dist/index.js"]
 
 [[ports]]
 localPort = 5000

@@ -3,6 +3,20 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./replitAuth";
 
+// Check if required packages are installed
+function ensureDependencies() {
+  try {
+    require('express');
+    log("Express dependency found", "server");
+  } catch (error) {
+    log("ERROR: Express dependency not found. Try running 'npm install'", "server");
+    process.exit(1);
+  }
+}
+
+// Run dependency check
+ensureDependencies();
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -50,67 +64,72 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !proce
 }
 
 (async () => {
-  // Set up Replit Auth
-  await setupAuth(app);
-  
-  const server = await registerRoutes(app);
+  try {
+    // Set up Replit Auth
+    await setupAuth(app);
+    
+    const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      res.status(status).json({ message });
+      console.error(err);
+    });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    try {
-      serveStatic(app);
-    } catch (e) {
-      console.error("Error setting up static file serving:", e);
-      
-      // Add fallback middleware if serveStatic fails
-      app.use(express.static("./dist/public"));
-      
-      // Add fallback catch-all route to serve index.html for all non-API routes
-      app.use("*", (req, res, next) => {
-        if (req.originalUrl.startsWith("/api")) {
-          return next();
-        }
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      try {
+        serveStatic(app);
+      } catch (e) {
+        console.error("Error setting up static file serving:", e);
         
-        try {
-          res.sendFile("index.html", { root: "./public" });
-        } catch (err) {
-          console.error("Error serving fallback index.html:", err);
-          res.status(200).send(`
-            <html>
-              <head><title>Home Services CRM</title></head>
-              <body>
-                <h1>Home Services CRM</h1>
-                <p>Application is running. Please try accessing a specific route like 
-                <a href="/dashboard">/dashboard</a></p>
-              </body>
-            </html>
-          `);
-        }
-      });
+        // Add fallback middleware if serveStatic fails
+        app.use(express.static("./dist/public"));
+        
+        // Add fallback catch-all route to serve index.html for all non-API routes
+        app.use("*", (req, res, next) => {
+          if (req.originalUrl.startsWith("/api")) {
+            return next();
+          }
+          
+          try {
+            res.sendFile("index.html", { root: "./public" });
+          } catch (err) {
+            console.error("Error serving fallback index.html:", err);
+            res.status(200).send(`
+              <html>
+                <head><title>Home Services CRM</title></head>
+                <body>
+                  <h1>Home Services CRM</h1>
+                  <p>Application is running. Please try accessing a specific route like 
+                  <a href="/dashboard">/dashboard</a></p>
+                </body>
+              </html>
+            `);
+          }
+        });
+      }
     }
-  }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+    // ALWAYS serve the app on port 5000
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = 5000;
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      log(`serving on port ${port}`);
+    });
+  } catch (error) {
+    console.error("Error starting the server:", error);
+    log("Server failed to start. See logs for details.", "server");
+  }
 })();
