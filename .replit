@@ -1,5 +1,5 @@
 modules = ["nodejs-20", "web", "postgresql-16"]
-run = "chmod +x run.sh && ./run.sh"
+run = "bash replit.sh"
 hidden = [".config", ".git", "node_modules", "dist", "package-lock.json"]
 
 [env]
@@ -48,5 +48,5 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev"
+args = "bash replit.sh"
 waitForPort = 5000

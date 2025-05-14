@@ -3,13 +3,11 @@
 # Set environment variables
 export NODE_ENV=development
 
-# Install dependencies if node_modules doesn't exist
-if [ ! -d "node_modules" ]; then
-  echo "Installing dependencies..."
-  npm install
-fi
+# Force install all dependencies from package.json
+echo "Installing all dependencies..."
+npm install --force
 
-# Install tsx directly if it's not available
+# Install tsx if it's not available
 if ! command -v tsx &> /dev/null; then
   echo "Installing tsx..."
   npm install -g tsx
@@ -28,4 +26,4 @@ fi
 
 # Run the development server
 echo "Starting server..."
-npx tsx server/index.ts 
+npx --yes tsx server/index.ts 
