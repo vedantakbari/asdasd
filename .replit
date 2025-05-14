@@ -2,9 +2,6 @@ modules = ["nodejs-20", "web", "postgresql-16"]
 run = "chmod +x run.sh && ./run.sh"
 hidden = [".config", ".git", "node_modules", "dist", "package-lock.json"]
 
-[nix]
-channel = "stable-24_05"
-
 [env]
 NODE_ENV = "development"
 
